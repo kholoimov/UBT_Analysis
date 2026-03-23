@@ -5,7 +5,7 @@ import numpy as np
 
 from root_utils import expand_patterns
 from workers import scan_pair_for_events_with_tracks, analyze_selected_event_in_pair
-from plotting import make_all_summary_plots
+from plotting import make_all_summary_plots, plot_event_detector_views
 from analysis_io import save_analysis_results, load_analysis_results
 
 def inspect_and_plot_all_tracks_parallel(
@@ -126,6 +126,11 @@ def inspect_and_plot_all_tracks_parallel(
     for res in analysis_results:
         if not res["success"]:
             continue
+        plot_event_detector_views(
+            res["event"],
+            res["global_event_number"],
+            output_prefix=output_prefix,
+        )
         events.append(res["event"])
 
     make_all_summary_plots(events, output_prefix=output_prefix)
@@ -137,6 +142,8 @@ def inspect_and_plot_all_tracks_parallel(
 def plot_from_saved_file(saved_results_file, output_prefix=""):
     print(f"Loading processed results from: {saved_results_file}")
     events = load_analysis_results(saved_results_file)
+    for event_number, event in enumerate(events):
+        plot_event_detector_views(event, event_number, output_prefix=output_prefix)
     make_all_summary_plots(events, output_prefix=output_prefix)
 
 

@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import ROOT
 
+from analysis_io import build_output_path
 from model import extract_plot_data
 
 
@@ -23,7 +24,7 @@ def plot_residual_histogram(residuals, output_name, title="Track-hit residuals",
     plt.ylabel("Entries")
     plt.title(title)
     plt.grid(True)
-    plt.savefig(output_name)
+    plt.savefig(build_output_path(output_name))
     plt.close()
 
 
@@ -50,7 +51,7 @@ def plot_residual_vs_momentum_plot(
 
     plt.title(name)
     plt.grid(True)
-    plt.savefig(f"{name}.png")
+    plt.savefig(build_output_path(f"{name}.png"))
     plt.close()
 
 
@@ -74,7 +75,7 @@ def plot_coord_bias_vs_momentum_plot(
 
     plt.title("Distance vs Momentum")
     plt.grid(True)
-    plt.savefig(f"{name}.png")
+    plt.savefig(build_output_path(f"{name}.png"))
     plt.close()
 
 
@@ -98,7 +99,7 @@ def plot_residual_vs_state_coordinate(
     plt.legend()
     plt.title(name)
     plt.grid(True)
-    plt.savefig(f"{name}.png")
+    plt.savefig(build_output_path(f"{name}.png"))
     plt.close()
 
 
@@ -131,7 +132,104 @@ def plot_2d_ROOT_histogram(x_data, y_data, name="UpstreamTagger_Hit_Map"):
     c.SetLogz(True)
 
     hXY.Draw("COLZ")
-    c.SaveAs(f"{name}_5cm_Passed_ST.pdf")
+    c.SaveAs(build_output_path(f"{name}_5cm_Passed_ST.pdf"))
+
+
+def plot_event_detector_views(event, event_number, output_prefix=""):
+    fig, axes = plt.subplots(1, 2, figsize=(16, 7), sharex=True)
+
+    all_z = []
+    all_x = []
+    all_y = []
+
+    if event.UBT_hits:
+        ubt_z = [hit.z for hit in event.UBT_hits]
+        ubt_x = [hit.x for hit in event.UBT_hits]
+        ubt_y = [hit.y for hit in event.UBT_hits]
+        axes[0].scatter(ubt_z, ubt_x, s=45, marker="o", color="C1", label="UBT hits")
+        axes[1].scatter(ubt_z, ubt_y, s=45, marker="o", color="C1", label="UBT hits")
+        all_z.extend(ubt_z)
+        all_x.extend(ubt_x)
+        all_y.extend(ubt_y)
+
+    plotted_track_label = False
+    for itrk, track in enumerate(event.ST_tracks):
+        if not track.hits:
+            continue
+
+        z_vals = [hit[2] for hit in track.hits]
+        x_vals = [hit[0] for hit in track.hits]
+        y_vals = [hit[1] for hit in track.hits]
+        color = f"C{itrk % 10}"
+        label = "Track states" if not plotted_track_label else None
+
+        axes[0].plot(z_vals, x_vals, marker=".", markersize=5, linewidth=1.2, alpha=0.85, color=color, label=label)
+        axes[1].plot(z_vals, y_vals, marker=".", markersize=5, linewidth=1.2, alpha=0.85, color=color, label=label)
+
+        plotted_track_label = True
+        all_z.extend(z_vals)
+        all_x.extend(x_vals)
+        all_y.extend(y_vals)
+
+    if event.ExtraStates:
+        extra_z = [state.z for state in event.ExtraStates]
+        extra_x = [state.x for state in event.ExtraStates]
+        extra_y = [state.y for state in event.ExtraStates]
+        axes[0].scatter(
+            extra_z,
+            extra_x,
+            s=90,
+            marker="x",
+            linewidths=2.0,
+            color="black",
+            label="Extra state",
+        )
+        axes[1].scatter(
+            extra_z,
+            extra_y,
+            s=90,
+            marker="x",
+            linewidths=2.0,
+            color="black",
+            label="Extra state",
+        )
+        all_z.extend(extra_z)
+        all_x.extend(extra_x)
+        all_y.extend(extra_y)
+
+    axes[0].set_title(f"Event {event_number}: XZ view")
+    axes[1].set_title(f"Event {event_number}: YZ view")
+    axes[0].set_xlabel("Z")
+    axes[1].set_xlabel("Z")
+    axes[0].set_ylabel("X")
+    axes[1].set_ylabel("Y")
+
+    for ax in axes:
+        ax.grid(True)
+        ax.legend()
+
+    if all_z:
+        z_min = min(all_z)
+        z_max = max(all_z)
+        z_pad = max((z_max - z_min) * 0.05, 1.0)
+        for ax in axes:
+            ax.set_xlim(z_min - z_pad, z_max + z_pad)
+
+    if all_x:
+        x_min = min(all_x)
+        x_max = max(all_x)
+        x_pad = max((x_max - x_min) * 0.1, 10.0)
+        axes[0].set_ylim(x_min - x_pad, x_max + x_pad)
+
+    if all_y:
+        y_min = min(all_y)
+        y_max = max(all_y)
+        y_pad = max((y_max - y_min) * 0.1, 10.0)
+        axes[1].set_ylim(y_min - y_pad, y_max + y_pad)
+
+    fig.tight_layout()
+    fig.savefig(build_output_path(f"{output_prefix}event_{event_number}_detector_views.png"))
+    plt.close(fig)
 
 
 def make_all_summary_plots(events, output_prefix=""):
