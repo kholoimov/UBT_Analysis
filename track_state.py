@@ -29,116 +29,42 @@ def get_all_track_points(track):
     return points
 
 
-def propagate_track_to_z(track, z_target, use_closest_state=True):
+def extrapolate_track_linearly_to_z(track, z_target):
     """
-    Propagate a fitted GENFIT track to a plane z = z_target.
+    Linearly extrapolate a track to z_target from the first stored fitted state.
 
     Returns
     -------
     (x, y, z, px, py, pz) on success, otherwise None.
-
-    Notes
-    -----
-    This uses the track's existing fitted representation when available,
-    instead of reconstructing a new rep from a guessed PDG.
     """
-    try:
-        import ROOT
-    except Exception:
-        return None
-
     if track is None:
         return None
 
-    try:
-        fit_status = track.getFitStatus()
-        if not fit_status or not fit_status.isFitConverged():
-            return None
-    except Exception:
+    points = get_all_track_points(track)
+    if not points:
         return None
 
-    try:
-        rep = track.getCardinalRep()
-    except Exception:
-        rep = None
+    first = points[0]
+    x0, y0, z0 = first[0], first[1], first[2]
 
-    if rep is None:
-        return None
-
-    try:
-        n_points = int(track.getNumPoints())
-    except Exception:
-        return None
-
-    if n_points <= 0:
-        return None
-
-    source_pos = None
-    source_mom = None
-    best_dz = None
-
-    if use_closest_state:
-        for i in range(n_points):
-            try:
-                state = track.getFittedState(i)
-                pos = state.getPos()
-                mom = state.getMom()
-            except Exception:
-                continue
-
-            try:
-                dz = abs(float(pos.Z()) - float(z_target))
-            except Exception:
-                continue
-
-            if best_dz is None or dz < best_dz:
-                best_dz = dz
-                source_pos = ROOT.TVector3(float(pos.X()), float(pos.Y()), float(pos.Z()))
-                source_mom = ROOT.TVector3(float(mom.X()), float(mom.Y()), float(mom.Z()))
+    if len(first) >= 6:
+        px0, py0, pz0 = first[3], first[4], first[5]
+    elif len(points) >= 2:
+        second = points[1]
+        px0 = second[0] - first[0]
+        py0 = second[1] - first[1]
+        pz0 = second[2] - first[2]
     else:
-        try:
-            state = track.getFittedState()
-            pos = state.getPos()
-            mom = state.getMom()
-            source_pos = ROOT.TVector3(float(pos.X()), float(pos.Y()), float(pos.Z()))
-            source_mom = ROOT.TVector3(float(mom.X()), float(mom.Y()), float(mom.Z()))
-        except Exception:
-            return None
-
-    if source_pos is None or source_mom is None:
         return None
 
-    try:
-        state_on_plane = ROOT.genfit.StateOnPlane(rep)
-        rep.setPosMom(state_on_plane, source_pos, source_mom)
-    except Exception:
+    if abs(pz0) < 1e-12:
         return None
 
-    try:
-        plane = ROOT.genfit.SharedPlanePtr(
-            ROOT.genfit.DetPlane(
-                ROOT.TVector3(0.0, 0.0, float(z_target)),
-                ROOT.TVector3(1.0, 0.0, 0.0),
-                ROOT.TVector3(0.0, 1.0, 0.0),
-            )
-        )
-        rep.extrapolateToPlane(state_on_plane, plane)
-    except Exception:
-        return None
+    dz = float(z_target) - float(z0)
+    x = float(x0) + float(px0 / pz0) * dz
+    y = float(y0) + float(py0 / pz0) * dz
 
-    try:
-        pos = state_on_plane.getPos()
-        mom = state_on_plane.getMom()
-        return (
-            float(pos.X()),
-            float(pos.Y()),
-            float(pos.Z()),
-            float(mom.X()),
-            float(mom.Y()),
-            float(mom.Z()),
-        )
-    except Exception:
-        return None
+    return x, y, float(z_target), float(px0), float(py0), float(pz0)
 
 
 def get_saved_reference_state(pos_branch, mom_branch, track_index, get_vector3_components):

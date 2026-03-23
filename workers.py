@@ -4,7 +4,7 @@ import numpy as np
 from root_utils import get_ROOT, get_branch_object, get_vector3_components
 from track_state import (
     get_all_track_points,
-    propagate_track_to_z,
+    extrapolate_track_linearly_to_z,
 )
 
 from model import EventInformation, MomentumVector, Residual, STTrack
@@ -140,7 +140,7 @@ def analyze_selected_event_in_pair(args):
             continue
 
     # -------------------------------------------------------------------------
-    # Propagate fitted tracks offline to the matched UBT hit z planes
+    # Linearly extrapolate stored track states to the matched UBT hit z planes
     # -------------------------------------------------------------------------
     for itrk in range(n_tracks):
         try:
@@ -182,16 +182,16 @@ def analyze_selected_event_in_pair(args):
 
         matched_hits = ubt_hits_by_mcid.get(mcid, [])
         for hit in matched_hits:
-            propagated_state = propagate_track_to_z(track, hit.z)
-            if propagated_state is None:
+            extrapolated_state = extrapolate_track_linearly_to_z(track, hit.z)
+            if extrapolated_state is None:
                 if verbose:
                     print(
-                        f"[WARN] Offline propagation failed for track {itrk} "
+                        f"[WARN] Linear extrapolation failed for track {itrk} "
                         f"(mcid={mcid}) to z={hit.z}"
                     )
                 continue
 
-            x_ref, y_ref, z_ref, px_ref, py_ref, pz_ref = propagated_state
+            x_ref, y_ref, z_ref, px_ref, py_ref, pz_ref = extrapolated_state
             state = MomentumVector(
                 x=x_ref,
                 y=y_ref,
