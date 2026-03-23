@@ -154,7 +154,7 @@ if __name__ == "__main__":
         "Usage:\n"
         "  Analyze ROOT files and save processed arrays:\n"
         "    python main.py <track_files/wildcards> <hit_files/wildcards> "
-        "[max_events_with_tracks] [workers] [output_prefix] [track_state_pos_branch] [track_state_mom_branch]\n\n"
+        "[max_events_with_tracks] [workers] [output_prefix]\n\n"
         "  Replot from saved processed file only:\n"
         "    python main.py --load <saved_results.npz> [output_prefix]\n"
     )
@@ -182,14 +182,10 @@ if __name__ == "__main__":
     max_events_with_tracks = int(sys.argv[3]) if len(sys.argv) > 3 else 1
     workers = int(sys.argv[4]) if len(sys.argv) > 4 else 4
     output_prefix = sys.argv[5] if len(sys.argv) > 5 else ""
-    track_state_pos_branch_name = sys.argv[6] if len(sys.argv) > 6 else "PropagatedPos"
-    track_state_mom_branch_name = sys.argv[7] if len(sys.argv) > 7 else "PropagatedMom"
 
     inspect_and_plot_all_tracks_parallel(
         track_file_patterns=track_patterns,
         hit_file_patterns=hit_patterns,
-        track_state_pos_branch_name=track_state_pos_branch_name,
-        track_state_mom_branch_name=track_state_mom_branch_name,
         max_events_with_tracks=max_events_with_tracks,
         workers=workers,
         output_prefix=output_prefix,

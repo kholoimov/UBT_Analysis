@@ -4,8 +4,7 @@ import numpy as np
 from root_utils import get_ROOT, get_branch_object, get_vector3_components
 from track_state import (
     get_all_track_points,
-    get_saved_reference_state,
-    track_passes_selection_from_saved_state,
+    propagate_track_to_z,
 )
 
 from model import EventInformation, MomentumVector, Residual, STTrack
@@ -101,28 +100,18 @@ def analyze_selected_event_in_pair(args):
     fit_tracks = get_branch_object(track_chain, track_branch_name)
     upstream_points = get_branch_object(hit_chain, hit_branch_name)
     mc_trackIDs = get_branch_object(track_chain, "fitTrack2MC")
-    saved_state_pos = get_branch_object(track_chain, track_state_pos_branch_name)
-    saved_state_mom = get_branch_object(track_chain, track_state_mom_branch_name)
 
-    if (
-        fit_tracks is None
-        or upstream_points is None
-        or saved_state_pos is None
-        or saved_state_mom is None
-    ):
+    if fit_tracks is None or upstream_points is None:
         return empty_result
 
     try:
         n_tracks = fit_tracks.size()
         n_hits = upstream_points.size()
-        n_pos = saved_state_pos.size()
-        n_mom = saved_state_mom.size()
     except Exception:
         return empty_result
 
-    n_tracks = min(n_tracks, n_pos, n_mom)
-
     event_info = EventInformation()
+    ubt_hits_by_mcid = {}
 
     # -------------------------------------------------------------------------
     # Read UBT hits
@@ -143,6 +132,7 @@ def analyze_selected_event_in_pair(args):
                 pz=mom_ubt.z(),
             )
             event_info.addUBTHit(ubt_hit)
+            ubt_hits_by_mcid.setdefault(ubt_hit.mcid, []).append(ubt_hit)
 
         except Exception as exc:
             if verbose:
@@ -150,7 +140,7 @@ def analyze_selected_event_in_pair(args):
             continue
 
     # -------------------------------------------------------------------------
-    # Read saved reference states and optionally track points
+    # Propagate fitted tracks offline to the matched UBT hit z planes
     # -------------------------------------------------------------------------
     for itrk in range(n_tracks):
         try:
@@ -165,18 +155,6 @@ def analyze_selected_event_in_pair(args):
                 print(f"[WARN] Null track at index {itrk}")
             continue
 
-        try:
-            ref_state = get_saved_reference_state(
-                saved_state_pos,
-                saved_state_mom,
-                itrk,
-                get_vector3_components,
-            )
-        except Exception as exc:
-            if verbose:
-                print(f"[WARN] Failed to read saved state for track {itrk}: {exc}")
-            continue
-
         mcid = itrk
         if mc_trackIDs is not None:
             try:
@@ -184,19 +162,6 @@ def analyze_selected_event_in_pair(args):
             except Exception as exc:
                 if verbose:
                     print(f"[WARN] Failed to read mcid for track {itrk}: {exc}")
-
-        x_ref, y_ref, z_ref, px_ref, py_ref, pz_ref = ref_state
-
-        state = MomentumVector(
-            x=x_ref,
-            y=y_ref,
-            z=z_ref,
-            mcid=mcid,
-            px=px_ref,
-            py=py_ref,
-            pz=pz_ref,
-        )
-        event_info.addExtraState(state)
 
         st_track = STTrack(mcid=mcid)
 
@@ -215,14 +180,28 @@ def analyze_selected_event_in_pair(args):
 
         event_info.addSTTrack(st_track)
 
-    # -------------------------------------------------------------------------
-    # Match ExtraStates to UBT hits by mcid and store residuals in EventInformation
-    # -------------------------------------------------------------------------
-    for state in event_info.ExtraStates:
-        for hit in event_info.UBT_hits:
-            if hit.mcid != state.mcid:
+        matched_hits = ubt_hits_by_mcid.get(mcid, [])
+        for hit in matched_hits:
+            propagated_state = propagate_track_to_z(track, hit.z)
+            if propagated_state is None:
+                if verbose:
+                    print(
+                        f"[WARN] Offline propagation failed for track {itrk} "
+                        f"(mcid={mcid}) to z={hit.z}"
+                    )
                 continue
 
+            x_ref, y_ref, z_ref, px_ref, py_ref, pz_ref = propagated_state
+            state = MomentumVector(
+                x=x_ref,
+                y=y_ref,
+                z=z_ref,
+                mcid=mcid,
+                px=px_ref,
+                py=py_ref,
+                pz=pz_ref,
+            )
+            event_info.addExtraState(state)
             dx = state.x - hit.x
             dy = state.y - hit.y
             dist = math.sqrt(dx * dx + dy * dy)

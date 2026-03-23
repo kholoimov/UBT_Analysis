@@ -29,6 +29,118 @@ def get_all_track_points(track):
     return points
 
 
+def propagate_track_to_z(track, z_target, use_closest_state=True):
+    """
+    Propagate a fitted GENFIT track to a plane z = z_target.
+
+    Returns
+    -------
+    (x, y, z, px, py, pz) on success, otherwise None.
+
+    Notes
+    -----
+    This uses the track's existing fitted representation when available,
+    instead of reconstructing a new rep from a guessed PDG.
+    """
+    try:
+        import ROOT
+    except Exception:
+        return None
+
+    if track is None:
+        return None
+
+    try:
+        fit_status = track.getFitStatus()
+        if not fit_status or not fit_status.isFitConverged():
+            return None
+    except Exception:
+        return None
+
+    try:
+        rep = track.getCardinalRep()
+    except Exception:
+        rep = None
+
+    if rep is None:
+        return None
+
+    try:
+        n_points = int(track.getNumPoints())
+    except Exception:
+        return None
+
+    if n_points <= 0:
+        return None
+
+    source_pos = None
+    source_mom = None
+    best_dz = None
+
+    if use_closest_state:
+        for i in range(n_points):
+            try:
+                state = track.getFittedState(i)
+                pos = state.getPos()
+                mom = state.getMom()
+            except Exception:
+                continue
+
+            try:
+                dz = abs(float(pos.Z()) - float(z_target))
+            except Exception:
+                continue
+
+            if best_dz is None or dz < best_dz:
+                best_dz = dz
+                source_pos = ROOT.TVector3(float(pos.X()), float(pos.Y()), float(pos.Z()))
+                source_mom = ROOT.TVector3(float(mom.X()), float(mom.Y()), float(mom.Z()))
+    else:
+        try:
+            state = track.getFittedState()
+            pos = state.getPos()
+            mom = state.getMom()
+            source_pos = ROOT.TVector3(float(pos.X()), float(pos.Y()), float(pos.Z()))
+            source_mom = ROOT.TVector3(float(mom.X()), float(mom.Y()), float(mom.Z()))
+        except Exception:
+            return None
+
+    if source_pos is None or source_mom is None:
+        return None
+
+    try:
+        state_on_plane = ROOT.genfit.StateOnPlane(rep)
+        rep.setPosMom(state_on_plane, source_pos, source_mom)
+    except Exception:
+        return None
+
+    try:
+        plane = ROOT.genfit.SharedPlanePtr(
+            ROOT.genfit.DetPlane(
+                ROOT.TVector3(0.0, 0.0, float(z_target)),
+                ROOT.TVector3(1.0, 0.0, 0.0),
+                ROOT.TVector3(0.0, 1.0, 0.0),
+            )
+        )
+        rep.extrapolateToPlane(state_on_plane, plane)
+    except Exception:
+        return None
+
+    try:
+        pos = state_on_plane.getPos()
+        mom = state_on_plane.getMom()
+        return (
+            float(pos.X()),
+            float(pos.Y()),
+            float(pos.Z()),
+            float(mom.X()),
+            float(mom.Y()),
+            float(mom.Z()),
+        )
+    except Exception:
+        return None
+
+
 def get_saved_reference_state(pos_branch, mom_branch, track_index, get_vector3_components):
     """
     Read saved per-track extra state from separate TVector3 branches.
