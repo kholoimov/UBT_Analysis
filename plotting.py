@@ -231,7 +231,7 @@ def plot_event_detector_views(event, event_number, output_prefix=""):
                 linewidth=1.4,
                 alpha=0.18,
                 color="black",
-                label="Linear extrapolation" if state is event.ExtraStates[0] else None,
+                label="Linear extrapolation from extra state" if state is event.ExtraStates[0] else None,
             )
             axes[1].plot(
                 full_z,
@@ -240,7 +240,7 @@ def plot_event_detector_views(event, event_number, output_prefix=""):
                 linewidth=1.4,
                 alpha=0.18,
                 color="black",
-                label="Linear extrapolation" if state is event.ExtraStates[0] else None,
+                label="Linear extrapolation from extra state" if state is event.ExtraStates[0] else None,
             )
 
             axes[0].plot(

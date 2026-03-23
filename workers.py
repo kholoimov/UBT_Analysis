@@ -4,7 +4,8 @@ import numpy as np
 from root_utils import get_ROOT, get_branch_object, get_vector3_components
 from track_state import (
     get_all_track_points,
-    extrapolate_track_linearly_to_z,
+    get_saved_reference_state,
+    extrapolate_linearly_from_state,
 )
 
 from model import EventInformation, MomentumVector, Residual, STTrack
@@ -100,8 +101,15 @@ def analyze_selected_event_in_pair(args):
     fit_tracks = get_branch_object(track_chain, track_branch_name)
     upstream_points = get_branch_object(hit_chain, hit_branch_name)
     mc_trackIDs = get_branch_object(track_chain, "fitTrack2MC")
+    saved_state_pos = get_branch_object(track_chain, track_state_pos_branch_name)
+    saved_state_mom = get_branch_object(track_chain, track_state_mom_branch_name)
 
-    if fit_tracks is None or upstream_points is None:
+    if (
+        fit_tracks is None
+        or upstream_points is None
+        or saved_state_pos is None
+        or saved_state_mom is None
+    ):
         return empty_result
 
     try:
@@ -140,7 +148,7 @@ def analyze_selected_event_in_pair(args):
             continue
 
     # -------------------------------------------------------------------------
-    # Linearly extrapolate stored track states to the matched UBT hit z planes
+    # Read stored track points and extrapolate the saved extra state back to UBT
     # -------------------------------------------------------------------------
     for itrk in range(n_tracks):
         try:
@@ -163,6 +171,18 @@ def analyze_selected_event_in_pair(args):
                 if verbose:
                     print(f"[WARN] Failed to read mcid for track {itrk}: {exc}")
 
+        try:
+            saved_ref_state = get_saved_reference_state(
+                saved_state_pos,
+                saved_state_mom,
+                itrk,
+                get_vector3_components,
+            )
+        except Exception as exc:
+            if verbose:
+                print(f"[WARN] Failed to read saved extra state for track {itrk}: {exc}")
+            continue
+
         st_track = STTrack(mcid=mcid)
 
         try:
@@ -182,11 +202,19 @@ def analyze_selected_event_in_pair(args):
 
         matched_hits = ubt_hits_by_mcid.get(mcid, [])
         for hit in matched_hits:
-            extrapolated_state = extrapolate_track_linearly_to_z(track, hit.z)
+            extrapolated_state = extrapolate_linearly_from_state(
+                saved_ref_state[0],
+                saved_ref_state[1],
+                saved_ref_state[2],
+                saved_ref_state[3],
+                saved_ref_state[4],
+                saved_ref_state[5],
+                hit.z,
+            )
             if extrapolated_state is None:
                 if verbose:
                     print(
-                        f"[WARN] Linear extrapolation failed for track {itrk} "
+                        f"[WARN] Linear extrapolation from extra state failed for track {itrk} "
                         f"(mcid={mcid}) to z={hit.z}"
                     )
                 continue

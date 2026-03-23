@@ -67,6 +67,24 @@ def extrapolate_track_linearly_to_z(track, z_target):
     return x, y, float(z_target), float(px0), float(py0), float(pz0)
 
 
+def extrapolate_linearly_from_state(x0, y0, z0, px0, py0, pz0, z_target):
+    """
+    Linearly extrapolate a state to z_target.
+
+    Returns
+    -------
+    (x, y, z, px, py, pz) on success, otherwise None.
+    """
+    if abs(pz0) < 1e-12:
+        return None
+
+    dz = float(z_target) - float(z0)
+    x = float(x0) + float(px0 / pz0) * dz
+    y = float(y0) + float(py0 / pz0) * dz
+
+    return x, y, float(z_target), float(px0), float(py0), float(pz0)
+
+
 def get_saved_reference_state(pos_branch, mom_branch, track_index, get_vector3_components):
     """
     Read saved per-track extra state from separate TVector3 branches.
