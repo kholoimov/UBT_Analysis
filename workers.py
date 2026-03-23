@@ -183,6 +183,17 @@ def analyze_selected_event_in_pair(args):
                 print(f"[WARN] Failed to read saved extra state for track {itrk}: {exc}")
             continue
 
+        saved_state = MomentumVector(
+            x=saved_ref_state[0],
+            y=saved_ref_state[1],
+            z=saved_ref_state[2],
+            mcid=mcid,
+            px=saved_ref_state[3],
+            py=saved_ref_state[4],
+            pz=saved_ref_state[5],
+        )
+        event_info.addExtraState(saved_state)
+
         st_track = STTrack(mcid=mcid)
 
         try:
@@ -220,7 +231,7 @@ def analyze_selected_event_in_pair(args):
                 continue
 
             x_ref, y_ref, z_ref, px_ref, py_ref, pz_ref = extrapolated_state
-            state = MomentumVector(
+            extrapolated_state_vector = MomentumVector(
                 x=x_ref,
                 y=y_ref,
                 z=z_ref,
@@ -229,24 +240,23 @@ def analyze_selected_event_in_pair(args):
                 py=py_ref,
                 pz=pz_ref,
             )
-            event_info.addExtraState(state)
-            dx = state.x - hit.x
-            dy = state.y - hit.y
+            dx = extrapolated_state_vector.x - hit.x
+            dy = extrapolated_state_vector.y - hit.y
             dist = math.sqrt(dx * dx + dy * dy)
 
             if verbose:
-                print("REF X = ", state.x, " UBT hit = ", hit.x)
-                print("REF Y = ", state.y, " UBT hit = ", hit.y)
-                print("REF Z = ", state.z, " UBT hit = ", hit.z)
+                print("REF X = ", extrapolated_state_vector.x, " UBT hit = ", hit.x)
+                print("REF Y = ", extrapolated_state_vector.y, " UBT hit = ", hit.y)
+                print("REF Z = ", extrapolated_state_vector.z, " UBT hit = ", hit.z)
                 print("=" * 80)
 
             event_info.addResidual(
                 Residual(
-                    mcid=state.mcid,
+                    mcid=extrapolated_state_vector.mcid,
                     dx=dx,
                     dy=dy,
                     dist=dist,
-                    state=state,
+                    state=extrapolated_state_vector,
                     hit=hit,
                 )
             )

@@ -141,11 +141,13 @@ def plot_event_detector_views(event, event_number, output_prefix=""):
     all_z = []
     all_x = []
     all_y = []
+    ubt_z_min = None
 
     if event.UBT_hits:
         ubt_z = [hit.z for hit in event.UBT_hits]
         ubt_x = [hit.x for hit in event.UBT_hits]
         ubt_y = [hit.y for hit in event.UBT_hits]
+        ubt_z_min = min(ubt_z)
         axes[0].scatter(ubt_z, ubt_x, s=45, marker="o", color="C1", label="UBT hits")
         axes[1].scatter(ubt_z, ubt_y, s=45, marker="o", color="C1", label="UBT hits")
         all_z.extend(ubt_z)
@@ -202,25 +204,25 @@ def plot_event_detector_views(event, event_number, output_prefix=""):
         z_max_ref = max(z_reference)
         z_span = max(z_max_ref - z_min_ref, 1.0)
         momentum_segment = 0.08 * z_span
+        z_back_target = ubt_z_min if ubt_z_min is not None else z_min_ref - 0.2 * z_span
 
         for state in event.ExtraStates:
             if abs(state.pz) < 1e-12:
                 continue
 
-            dz_short = momentum_segment
-            dz_full = z_span
+            dz_short = -momentum_segment
 
             short_z = [state.z, state.z + dz_short]
             short_x = [state.x, state.x + (state.px / state.pz) * dz_short]
             short_y = [state.y, state.y + (state.py / state.pz) * dz_short]
 
-            full_z = [state.z - 1.2 * dz_full, state.z + 0.5 * dz_full]
+            full_z = [state.z, z_back_target]
             full_x = [
-                state.x + (state.px / state.pz) * (full_z[0] - state.z),
+                state.x,
                 state.x + (state.px / state.pz) * (full_z[1] - state.z),
             ]
             full_y = [
-                state.y + (state.py / state.pz) * (full_z[0] - state.z),
+                state.y,
                 state.y + (state.py / state.pz) * (full_z[1] - state.z),
             ]
 
@@ -285,10 +287,11 @@ def plot_event_detector_views(event, event_number, output_prefix=""):
         z_min_ref = min(z_reference)
         z_max_ref = max(z_reference)
         z_span = max(z_max_ref - z_min_ref, 1.0)
+        z_back_target = ubt_z_min if ubt_z_min is not None else z_min_ref - 0.2 * z_span
 
-        first_state_z = [z0, z0 + z_span]
-        first_state_x = [x0, x0 + slope_x * z_span]
-        first_state_y = [y0, y0 + slope_y * z_span]
+        first_state_z = [z0, z_back_target]
+        first_state_x = [x0, x0 + slope_x * (z_back_target - z0)]
+        first_state_y = [y0, y0 + slope_y * (z_back_target - z0)]
 
         axes[0].plot(
             first_state_z,
