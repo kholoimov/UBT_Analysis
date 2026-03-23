@@ -214,7 +214,7 @@ def plot_event_detector_views(event, event_number, output_prefix=""):
             short_x = [state.x, state.x + (state.px / state.pz) * dz_short]
             short_y = [state.y, state.y + (state.py / state.pz) * dz_short]
 
-            full_z = [state.z - 0.5 * dz_full, state.z + 0.5 * dz_full]
+            full_z = [state.z - 1.2 * dz_full, state.z + 0.5 * dz_full]
             full_x = [
                 state.x + (state.px / state.pz) * (full_z[0] - state.z),
                 state.x + (state.px / state.pz) * (full_z[1] - state.z),

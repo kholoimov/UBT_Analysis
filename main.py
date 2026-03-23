@@ -123,14 +123,17 @@ def inspect_and_plot_all_tracks_parallel(
     analysis_results.sort(key=lambda x: x["global_event_number"])
 
     events = []
+    counter = 0
     for res in analysis_results:
         if not res["success"]:
             continue
-        plot_event_detector_views(
-            res["event"],
-            res["global_event_number"],
-            output_prefix=output_prefix,
-        )
+        if counter < 100:
+            plot_event_detector_views(
+                res["event"],
+                res["global_event_number"],
+                output_prefix=output_prefix,
+            )
+            counter += 1
         events.append(res["event"])
 
     make_all_summary_plots(events, output_prefix=output_prefix)
@@ -144,6 +147,7 @@ def plot_from_saved_file(saved_results_file, output_prefix=""):
     events = load_analysis_results(saved_results_file)
     for event_number, event in enumerate(events):
         plot_event_detector_views(event, event_number, output_prefix=output_prefix)
+        if event_number >= 100: break
     make_all_summary_plots(events, output_prefix=output_prefix)
 
 
