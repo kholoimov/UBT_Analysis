@@ -262,6 +262,58 @@ def plot_event_detector_views(event, event_number, output_prefix=""):
             all_x.extend(full_x)
             all_y.extend(full_y)
 
+    first_state_label_drawn = False
+    for track in event.ST_tracks:
+        if len(track.hits) < 2:
+            continue
+
+        first_hit = track.hits[0]
+        second_hit = track.hits[1]
+
+        z0 = first_hit[2]
+        x0 = first_hit[0]
+        y0 = first_hit[1]
+        dz = second_hit[2] - first_hit[2]
+
+        if abs(dz) < 1e-12:
+            continue
+
+        slope_x = (second_hit[0] - first_hit[0]) / dz
+        slope_y = (second_hit[1] - first_hit[1]) / dz
+
+        z_reference = all_z if all_z else [z0, second_hit[2]]
+        z_min_ref = min(z_reference)
+        z_max_ref = max(z_reference)
+        z_span = max(z_max_ref - z_min_ref, 1.0)
+
+        first_state_z = [z0, z0 + z_span]
+        first_state_x = [x0, x0 + slope_x * z_span]
+        first_state_y = [y0, y0 + slope_y * z_span]
+
+        axes[0].plot(
+            first_state_z,
+            first_state_x,
+            linestyle=":",
+            linewidth=1.8,
+            alpha=0.35,
+            color="blue",
+            label="Linear extrapolation from first track state" if not first_state_label_drawn else None,
+        )
+        axes[1].plot(
+            first_state_z,
+            first_state_y,
+            linestyle=":",
+            linewidth=1.8,
+            alpha=0.35,
+            color="blue",
+            label="Linear extrapolation from first track state" if not first_state_label_drawn else None,
+        )
+
+        first_state_label_drawn = True
+        all_z.extend(first_state_z)
+        all_x.extend(first_state_x)
+        all_y.extend(first_state_y)
+
     axes[0].set_title(f"Event {event_number}: XZ view")
     axes[1].set_title(f"Event {event_number}: YZ view")
     axes[0].set_xlabel("Z")
