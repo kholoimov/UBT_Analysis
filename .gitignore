@@ -1,3 +1,5 @@
 __pycache__/
 *.png
 *.pdf
+analysis_results.pkl
+output/
