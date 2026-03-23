@@ -1,7 +1,12 @@
 import math
-import numpy as np
 
-from root_utils import get_ROOT, get_branch_object, get_vector3_components
+from root_utils import (
+    get_ROOT,
+    get_branch_object,
+    get_collection_item,
+    get_collection_size,
+    get_vector3_components,
+)
 from track_state import (
     get_all_track_points,
     get_saved_reference_state,
@@ -43,10 +48,7 @@ def scan_pair_for_events_with_tracks(args):
         if fit_tracks is None:
             continue
 
-        try:
-            n_tracks = fit_tracks.size()
-        except Exception:
-            continue
+        n_tracks = get_collection_size(fit_tracks)
 
         if n_tracks > 0:
             found_local_events.append(event_number)
@@ -112,11 +114,8 @@ def analyze_selected_event_in_pair(args):
     ):
         return empty_result
 
-    try:
-        n_tracks = fit_tracks.size()
-        n_hits = upstream_points.size()
-    except Exception:
-        return empty_result
+    n_tracks = get_collection_size(fit_tracks)
+    n_hits = get_collection_size(upstream_points)
 
     event_info = EventInformation()
     ubt_hits_by_mcid = {}
@@ -127,7 +126,9 @@ def analyze_selected_event_in_pair(args):
     mom_ubt = ROOT.TVector3()
     for i in range(n_hits):
         try:
-            hit = upstream_points[i]
+            hit = get_collection_item(upstream_points, i)
+            if hit is None:
+                continue
             hit.Momentum(mom_ubt)
 
             ubt_hit = MomentumVector(
@@ -152,7 +153,7 @@ def analyze_selected_event_in_pair(args):
     # -------------------------------------------------------------------------
     for itrk in range(n_tracks):
         try:
-            track = fit_tracks[itrk]
+            track = get_collection_item(fit_tracks, itrk)
         except Exception as exc:
             if verbose:
                 print(f"[WARN] Failed to access track {itrk}: {exc}")
@@ -166,7 +167,9 @@ def analyze_selected_event_in_pair(args):
         mcid = itrk
         if mc_trackIDs is not None:
             try:
-                mcid = mc_trackIDs[itrk]
+                mcid_obj = get_collection_item(mc_trackIDs, itrk)
+                if mcid_obj is not None:
+                    mcid = int(mcid_obj)
             except Exception as exc:
                 if verbose:
                     print(f"[WARN] Failed to read mcid for track {itrk}: {exc}")

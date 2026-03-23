@@ -1,5 +1,7 @@
 import math
 
+from root_utils import get_collection_item
+
 
 def get_all_track_points(track):
     """
@@ -91,8 +93,8 @@ def get_saved_reference_state(pos_branch, mom_branch, track_index, get_vector3_c
     Returns:
         x, y, z, px, py, pz
     """
-    pos = pos_branch[track_index]
-    mom = mom_branch[track_index]
+    pos = get_collection_item(pos_branch, track_index)
+    mom = get_collection_item(mom_branch, track_index)
 
     x, y, z = get_vector3_components(pos)
     px, py, pz = get_vector3_components(mom)
@@ -102,9 +104,12 @@ def get_saved_reference_state(pos_branch, mom_branch, track_index, get_vector3_c
 
 def has_hits_in_all_stations(
     all_points,
-    station_z=(8407.0, 8607.0, 9307.0, 9507.0),
+    station_z=None,
     tolerance=100.0
 ):
+    if station_z is None:
+        return True
+
     station_hits = [False] * len(station_z)
 
     for p in all_points:
