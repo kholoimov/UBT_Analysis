@@ -8,9 +8,6 @@ from workers import scan_pair_for_events_with_tracks, analyze_selected_event_in_
 from plotting import make_all_summary_plots
 from analysis_io import save_analysis_results, load_analysis_results
 
-from model import EventInformation
-
-
 def inspect_and_plot_all_tracks_parallel(
     track_file_patterns,
     hit_file_patterns,
@@ -139,8 +136,8 @@ def inspect_and_plot_all_tracks_parallel(
 
 def plot_from_saved_file(saved_results_file, output_prefix=""):
     print(f"Loading processed results from: {saved_results_file}")
-    events = load_analysis_results("analysis_results.pkl")
-    make_all_summary_plots(events, output_prefix="loaded_")
+    events = load_analysis_results(saved_results_file)
+    make_all_summary_plots(events, output_prefix=output_prefix)
 
 
 if __name__ == "__main__":

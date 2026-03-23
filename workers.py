@@ -8,7 +8,7 @@ from track_state import (
     track_passes_selection_from_saved_state,
 )
 
-from model import EventInformation
+from model import EventInformation, MomentumVector, Residual, STTrack
 
 def scan_pair_for_events_with_tracks(args):
     (

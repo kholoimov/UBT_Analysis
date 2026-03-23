@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import ROOT
 
-from model import EventInformation
+from model import extract_plot_data
 
 
 def plot_residual_histogram(residuals, output_name, title="Track-hit residuals", bins=100):
@@ -134,7 +134,9 @@ def plot_2d_ROOT_histogram(x_data, y_data, name="UpstreamTagger_Hit_Map"):
     c.SaveAs(f"{name}_5cm_Passed_ST.pdf")
 
 
-def make_all_summary_plots(results, output_prefix=""):
+def make_all_summary_plots(events, output_prefix=""):
+    results = extract_plot_data(events)
+
     global_residuals = results["residuals"]
     global_momentum_for_histogram = results["momenta"]
     global_distance_x = results["dx"]
@@ -146,8 +148,8 @@ def make_all_summary_plots(results, output_prefix=""):
     state_x = results["x_state"]
     state_y = results["y_state"]
 
-    x_extra = results["x_extra"]
-    y_extra = results["y_extra"]
+    hit_x = results["x_hit"]
+    hit_y = results["y_hit"]
 
     plot_residual_histogram(
         global_residuals,
@@ -260,7 +262,7 @@ def make_all_summary_plots(results, output_prefix=""):
     )
 
     plot_residual_vs_state_coordinate(
-        x_extra,
+        state_x,
         global_distance_x,
         ylim=(-200, 200),
         ylabel="X bias between extra state and true hit",
@@ -269,7 +271,7 @@ def make_all_summary_plots(results, output_prefix=""):
     )
 
     plot_residual_vs_state_coordinate(
-        y_extra,
+        state_y,
         global_distance_x,
         ylim=(-200, 200),
         ylabel="X bias between extra state and true hit",
@@ -278,7 +280,7 @@ def make_all_summary_plots(results, output_prefix=""):
     )
 
     plot_residual_vs_state_coordinate(
-        x_extra,
+        state_x,
         global_distance_y,
         ylim=(-200, 200),
         ylabel="Y bias between extra state and true hit",
@@ -287,7 +289,7 @@ def make_all_summary_plots(results, output_prefix=""):
     )
 
     plot_residual_vs_state_coordinate(
-        y_extra,
+        state_y,
         global_distance_y,
         ylim=(-200, 200),
         ylabel="Y bias between extra state and true hit",
@@ -295,14 +297,8 @@ def make_all_summary_plots(results, output_prefix=""):
         name=f"{output_prefix}Y_bias_vs_Y_extra",
     )
 
-    x_true = []
-    y_true = []
-    for i in range(len(global_distance_y)):
-        y_true.append(y_extra[i] - global_distance_y[i])
-        x_true.append(x_extra[i] - global_distance_x[i])
-
     plot_residual_vs_state_coordinate(
-        y_true,
+        hit_y,
         global_distance_y,
         ylim=(-200, 200),
         ylabel="Y bias between extra state and true hit",
@@ -311,7 +307,7 @@ def make_all_summary_plots(results, output_prefix=""):
     )
 
     plot_residual_vs_state_coordinate(
-        x_true,
+        hit_x,
         global_distance_x,
         ylim=(-200, 200),
         ylabel="X bias between extra state and true hit",
@@ -319,16 +315,24 @@ def make_all_summary_plots(results, output_prefix=""):
         name=f"{output_prefix}X_bias_vs_X_true",
     )
 
-    plot_2d_ROOT_histogram(x_true, y_true)
-    plot_2d_ROOT_histogram(x_extra, y_extra, name="extra_state")
+    plot_2d_ROOT_histogram(hit_x, hit_y, name=f"{output_prefix}true_hit")
+    plot_2d_ROOT_histogram(state_x, state_y, name=f"{output_prefix}extra_state")
 
     df = pd.DataFrame({
-        "x_true": x_true,
-        "y_true": y_true,
+        "x_true": hit_x,
+        "y_true": hit_y,
         "momentum": global_momentum_for_histogram,
     })
 
     low_momentum = df["momentum"] < 10
 
-    plot_2d_ROOT_histogram(df["x_true"][low_momentum], df["y_true"][low_momentum], name="Low_momentum_XY_map")
-    plot_2d_ROOT_histogram(df["x_true"][~low_momentum], df["y_true"][~low_momentum], name="High_momentum_XY_map")
+    plot_2d_ROOT_histogram(
+        df["x_true"][low_momentum],
+        df["y_true"][low_momentum],
+        name=f"{output_prefix}Low_momentum_XY_map",
+    )
+    plot_2d_ROOT_histogram(
+        df["x_true"][~low_momentum],
+        df["y_true"][~low_momentum],
+        name=f"{output_prefix}High_momentum_XY_map",
+    )
