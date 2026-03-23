@@ -197,6 +197,71 @@ def plot_event_detector_views(event, event_number, output_prefix=""):
         all_x.extend(extra_x)
         all_y.extend(extra_y)
 
+        z_reference = all_z if all_z else extra_z
+        z_min_ref = min(z_reference)
+        z_max_ref = max(z_reference)
+        z_span = max(z_max_ref - z_min_ref, 1.0)
+        momentum_segment = 0.08 * z_span
+
+        for state in event.ExtraStates:
+            if abs(state.pz) < 1e-12:
+                continue
+
+            dz_short = momentum_segment
+            dz_full = z_span
+
+            short_z = [state.z, state.z + dz_short]
+            short_x = [state.x, state.x + (state.px / state.pz) * dz_short]
+            short_y = [state.y, state.y + (state.py / state.pz) * dz_short]
+
+            full_z = [state.z - 0.5 * dz_full, state.z + 0.5 * dz_full]
+            full_x = [
+                state.x + (state.px / state.pz) * (full_z[0] - state.z),
+                state.x + (state.px / state.pz) * (full_z[1] - state.z),
+            ]
+            full_y = [
+                state.y + (state.py / state.pz) * (full_z[0] - state.z),
+                state.y + (state.py / state.pz) * (full_z[1] - state.z),
+            ]
+
+            axes[0].plot(
+                full_z,
+                full_x,
+                linestyle="--",
+                linewidth=1.4,
+                alpha=0.18,
+                color="black",
+                label="Linear extrapolation" if state is event.ExtraStates[0] else None,
+            )
+            axes[1].plot(
+                full_z,
+                full_y,
+                linestyle="--",
+                linewidth=1.4,
+                alpha=0.18,
+                color="black",
+                label="Linear extrapolation" if state is event.ExtraStates[0] else None,
+            )
+
+            axes[0].plot(
+                short_z,
+                short_x,
+                linewidth=2.2,
+                color="red",
+                label="Extra-state momentum" if state is event.ExtraStates[0] else None,
+            )
+            axes[1].plot(
+                short_z,
+                short_y,
+                linewidth=2.2,
+                color="red",
+                label="Extra-state momentum" if state is event.ExtraStates[0] else None,
+            )
+
+            all_z.extend(full_z)
+            all_x.extend(full_x)
+            all_y.extend(full_y)
+
     axes[0].set_title(f"Event {event_number}: XZ view")
     axes[1].set_title(f"Event {event_number}: YZ view")
     axes[0].set_xlabel("Z")
