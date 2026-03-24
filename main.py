@@ -7,6 +7,7 @@ from root_utils import expand_patterns
 from workers import scan_pair_for_events_with_tracks, analyze_selected_event_in_pair
 from plotting import make_all_summary_plots, plot_event_detector_views
 from analysis_io import save_analysis_results, load_analysis_results
+from investigate_tracks import InvestigateTracks
 
 def inspect_and_plot_all_tracks_parallel(
     track_file_patterns,
@@ -160,6 +161,12 @@ if __name__ == "__main__":
     usage = (
         "Usage:\n"
         "  Analyze ROOT files and save processed arrays:\n"
+        "    python main.py --timing-resolution <track_files/wildcards> <hit_files/wildcards> "
+        "[max_events_with_tracks] [workers] [output_prefix] [--save-detector-view]\n\n"
+        "  Investigate tracks:\n"
+        "    python main.py --investigate-tracks <track_files/wildcards> <hit_files/wildcards> "
+        "[max_events_with_tracks] [workers] [output_prefix]\n\n"
+        "  Backward-compatible default analysis:\n"
         "    python main.py <track_files/wildcards> <hit_files/wildcards> "
         "[max_events_with_tracks] [workers] [output_prefix] [--save-detector-view]\n\n"
         "  Replot from saved processed file only:\n"
@@ -189,12 +196,32 @@ if __name__ == "__main__":
         print(usage)
         sys.exit(1)
 
-    track_patterns = [sys.argv[1]]
-    hit_patterns = [sys.argv[2]]
-    max_events_with_tracks = int(sys.argv[3]) if len(sys.argv) > 3 else 1
-    workers = int(sys.argv[4]) if len(sys.argv) > 4 else 4
-    output_prefix = sys.argv[5] if len(sys.argv) > 5 else ""
-    save_detector_view = "--save-detector-view" in sys.argv[3:]
+    mode = "default"
+    positional_args = sys.argv[1:]
+    if sys.argv[1] in ("--timing-resolution", "--investigate-tracks"):
+        mode = sys.argv[1]
+        positional_args = sys.argv[2:]
+
+    if len(positional_args) < 2:
+        print(usage)
+        sys.exit(1)
+
+    track_patterns = [positional_args[0]]
+    hit_patterns = [positional_args[1]]
+    max_events_with_tracks = int(positional_args[2]) if len(positional_args) > 2 and not positional_args[2].startswith("--") else 1
+    workers = int(positional_args[3]) if len(positional_args) > 3 and not positional_args[3].startswith("--") else 4
+    output_prefix = positional_args[4] if len(positional_args) > 4 and not positional_args[4].startswith("--") else ""
+    save_detector_view = "--save-detector-view" in positional_args
+
+    if mode == "--investigate-tracks":
+        InvestigateTracks(
+            track_file_patterns=track_patterns,
+            hit_file_patterns=hit_patterns,
+            max_events_with_tracks=max_events_with_tracks,
+            workers=workers,
+            output_prefix=output_prefix,
+        )
+        sys.exit(0)
 
     inspect_and_plot_all_tracks_parallel(
         track_file_patterns=track_patterns,
