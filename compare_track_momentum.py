@@ -112,6 +112,12 @@ def _process_momentum_chunk(args):
     reco_px = []
     reco_py = []
     reco_pz = []
+    true_px_last = []
+    true_py_last = []
+    true_pz_last = []
+    reco_px_last = []
+    reco_py_last = []
+    reco_pz_last = []
     processed_events = 0
 
     for event_number in range(event_start, event_end):
@@ -171,7 +177,9 @@ def _process_momentum_chunk(args):
                 continue
 
             first_straw_hit = min(matched_straw_hits, key=lambda hit: hit["z"])
+            last_straw_hit = max(matched_straw_hits, key=lambda hit: hit["z"])
             first_reco_state = reco_points[0]
+            last_reco_state = max(reco_points, key=lambda point: point[2])
 
             reco_px.append(float(first_reco_state[3]))
             reco_py.append(float(first_reco_state[4]))
@@ -180,6 +188,14 @@ def _process_momentum_chunk(args):
             true_px.append(float(first_straw_hit["px"]))
             true_py.append(float(first_straw_hit["py"]))
             true_pz.append(float(first_straw_hit["pz"]))
+
+            reco_px_last.append(float(last_reco_state[3]))
+            reco_py_last.append(float(last_reco_state[4]))
+            reco_pz_last.append(float(last_reco_state[5]))
+
+            true_px_last.append(float(last_straw_hit["px"]))
+            true_py_last.append(float(last_straw_hit["py"]))
+            true_pz_last.append(float(last_straw_hit["pz"]))
             found_track_in_event = True
 
         if found_track_in_event:
@@ -194,6 +210,12 @@ def _process_momentum_chunk(args):
         "reco_px": reco_px,
         "reco_py": reco_py,
         "reco_pz": reco_pz,
+        "true_px_last": true_px_last,
+        "true_py_last": true_py_last,
+        "true_pz_last": true_pz_last,
+        "reco_px_last": reco_px_last,
+        "reco_py_last": reco_py_last,
+        "reco_pz_last": reco_pz_last,
     }
 
 
@@ -230,6 +252,12 @@ def CompareTrackMomentum(
     reco_px = []
     reco_py = []
     reco_pz = []
+    true_px_last = []
+    true_py_last = []
+    true_pz_last = []
+    reco_px_last = []
+    reco_py_last = []
+    reco_pz_last = []
     processed_events = 0
     chunk_args = []
     chunk_index = 0
@@ -282,9 +310,17 @@ def CompareTrackMomentum(
         reco_px.extend(result["reco_px"])
         reco_py.extend(result["reco_py"])
         reco_pz.extend(result["reco_pz"])
+        true_px_last.extend(result["true_px_last"])
+        true_py_last.extend(result["true_py_last"])
+        true_pz_last.extend(result["true_pz_last"])
+        reco_px_last.extend(result["reco_px_last"])
+        reco_py_last.extend(result["reco_py_last"])
+        reco_pz_last.extend(result["reco_pz_last"])
 
     reco_p = np.sqrt(np.asarray(reco_px) ** 2 + np.asarray(reco_py) ** 2 + np.asarray(reco_pz) ** 2)
     true_p = np.sqrt(np.asarray(true_px) ** 2 + np.asarray(true_py) ** 2 + np.asarray(true_pz) ** 2)
+    reco_p_last = np.sqrt(np.asarray(reco_px_last) ** 2 + np.asarray(reco_py_last) ** 2 + np.asarray(reco_pz_last) ** 2)
+    true_p_last = np.sqrt(np.asarray(true_px_last) ** 2 + np.asarray(true_py_last) ** 2 + np.asarray(true_pz_last) ** 2)
 
     _plot_histogram(reco_p - true_p, f"{output_prefix}momentum_resolution_p.png", "Momentum resolution", "p_reco - p_true")
     _plot_histogram(np.asarray(reco_px) - np.asarray(true_px), f"{output_prefix}momentum_resolution_px.png", "Px resolution", "px_reco - px_true")
@@ -295,6 +331,16 @@ def CompareTrackMomentum(
     _plot_scatter(np.asarray(true_px), np.asarray(reco_px), f"{output_prefix}momentum_true_vs_reco_px.png", "Reco vs true px", "px_true", "px_reco")
     _plot_scatter(np.asarray(true_py), np.asarray(reco_py), f"{output_prefix}momentum_true_vs_reco_py.png", "Reco vs true py", "py_true", "py_reco")
     _plot_scatter(np.asarray(true_pz), np.asarray(reco_pz), f"{output_prefix}momentum_true_vs_reco_pz.png", "Reco vs true pz", "pz_true", "pz_reco")
+
+    _plot_histogram(reco_p_last - true_p_last, f"{output_prefix}momentum_resolution_last_p.png", "Momentum resolution at last state", "p_reco(last) - p_true(last)")
+    _plot_histogram(np.asarray(reco_px_last) - np.asarray(true_px_last), f"{output_prefix}momentum_resolution_last_px.png", "Px resolution at last state", "px_reco(last) - px_true(last)")
+    _plot_histogram(np.asarray(reco_py_last) - np.asarray(true_py_last), f"{output_prefix}momentum_resolution_last_py.png", "Py resolution at last state", "py_reco(last) - py_true(last)")
+    _plot_histogram(np.asarray(reco_pz_last) - np.asarray(true_pz_last), f"{output_prefix}momentum_resolution_last_pz.png", "Pz resolution at last state", "pz_reco(last) - pz_true(last)")
+
+    _plot_scatter(true_p_last, reco_p_last, f"{output_prefix}momentum_true_vs_reco_last_p.png", "Reco vs true momentum at last state", "p_true(last)", "p_reco(last)")
+    _plot_scatter(np.asarray(true_px_last), np.asarray(reco_px_last), f"{output_prefix}momentum_true_vs_reco_last_px.png", "Reco vs true px at last state", "px_true(last)", "px_reco(last)")
+    _plot_scatter(np.asarray(true_py_last), np.asarray(reco_py_last), f"{output_prefix}momentum_true_vs_reco_last_py.png", "Reco vs true py at last state", "py_true(last)", "py_reco(last)")
+    _plot_scatter(np.asarray(true_pz_last), np.asarray(reco_pz_last), f"{output_prefix}momentum_true_vs_reco_last_pz.png", "Reco vs true pz at last state", "pz_true(last)", "pz_reco(last)")
 
     print(f"Processed events for momentum comparison: {processed_events}")
     print(f"Matched tracks for momentum comparison: {len(reco_p)}")
