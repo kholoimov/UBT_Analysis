@@ -17,8 +17,6 @@ def plot_residual_histogram(residuals, output_name, title="Track-hit residuals",
             plt.hist(residuals, bins=bins, histtype="step", linewidth=1.8)
         mean_val = np.mean(residuals)
         rms_val = np.std(residuals)
-        plt.axvline(mean_val, linestyle="--", label=f"mean = {mean_val:.3f}")
-        plt.legend()
         print(f"{title}: N={len(residuals)}, mean={mean_val:.6f}, rms={rms_val:.6f}")
     else:
         print(f"{title}: no entries")
