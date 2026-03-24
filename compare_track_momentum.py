@@ -96,9 +96,16 @@ def _plot_resolution_vs_true_momentum(true_momentum, relative_resolution, output
     valid = np.isfinite(true_momentum) & np.isfinite(relative_resolution)
     true_momentum = true_momentum[valid]
     relative_resolution = relative_resolution[valid]
+    positive_momentum = true_momentum[true_momentum > 0]
+    positive_resolution = relative_resolution[true_momentum > 0]
 
-    if len(true_momentum) > 0:
-        hist_counts, hist_edges = np.histogram(true_momentum, bins=bins)
+    if len(positive_momentum) > 0:
+        if np.min(positive_momentum) == np.max(positive_momentum):
+            bin_edges = np.array([positive_momentum[0] * 0.9, positive_momentum[0] * 1.1])
+        else:
+            bin_edges = np.geomspace(np.min(positive_momentum), np.max(positive_momentum), bins + 1)
+
+        hist_counts, hist_edges = np.histogram(positive_momentum, bins=bin_edges)
         ax_hist.stairs(
             hist_counts,
             hist_edges,
@@ -113,12 +120,7 @@ def _plot_resolution_vs_true_momentum(true_momentum, relative_resolution, output
         ax_hist.tick_params(axis="y", colors="gray")
         ax_hist.grid(False)
 
-        if np.min(true_momentum) == np.max(true_momentum):
-            bin_edges = np.array([true_momentum[0] - 0.5, true_momentum[0] + 0.5])
-        else:
-            bin_edges = np.linspace(np.min(true_momentum), np.max(true_momentum), bins + 1)
-
-        bin_indices = np.digitize(true_momentum, bin_edges) - 1
+        bin_indices = np.digitize(positive_momentum, bin_edges) - 1
         bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
         resolution_points = []
         resolution_errors = []
@@ -128,7 +130,7 @@ def _plot_resolution_vs_true_momentum(true_momentum, relative_resolution, output
             in_bin = bin_indices == idx
             if not np.any(in_bin):
                 continue
-            values = relative_resolution[in_bin]
+            values = positive_resolution[in_bin]
             if len(values) < 2:
                 resolution = float(np.std(values))
                 error = 0.0
@@ -154,8 +156,13 @@ def _plot_resolution_vs_true_momentum(true_momentum, relative_resolution, output
             print(f"{title}: plotted {len(x_points)} momentum bins")
         else:
             print(f"{title}: no populated bins")
+    elif len(true_momentum) > 0:
+        print(f"{title}: no positive momentum entries for log binning")
     else:
         print(f"{title}: no entries")
+
+    if len(positive_momentum) > 0:
+        ax.set_xscale("log")
 
     ax.set_xlabel("True momentum")
     ax.set_ylabel(ylabel)
