@@ -21,6 +21,7 @@ def inspect_and_plot_all_tracks_parallel(
     max_events_with_tracks=1,
     workers=4,
     output_prefix="",
+    save_detector_view=False,
     verbose=False,
     save_processed=True,
 ):
@@ -127,7 +128,7 @@ def inspect_and_plot_all_tracks_parallel(
     for res in analysis_results:
         if not res["success"]:
             continue
-        if counter < 100:
+        if save_detector_view and counter < 100:
             plot_event_detector_views(
                 res["event"],
                 res["global_event_number"],
@@ -142,12 +143,14 @@ def inspect_and_plot_all_tracks_parallel(
         save_analysis_results(output_prefix, events)
 
 
-def plot_from_saved_file(saved_results_file, output_prefix=""):
+def plot_from_saved_file(saved_results_file, output_prefix="", save_detector_view=False):
     print(f"Loading processed results from: {saved_results_file}")
     events = load_analysis_results(saved_results_file)
-    for event_number, event in enumerate(events):
-        plot_event_detector_views(event, event_number, output_prefix=output_prefix)
-        if event_number >= 100: break
+    if save_detector_view:
+        for event_number, event in enumerate(events):
+            plot_event_detector_views(event, event_number, output_prefix=output_prefix)
+            if event_number >= 100:
+                break
     make_all_summary_plots(events, output_prefix=output_prefix)
 
 
@@ -158,9 +161,9 @@ if __name__ == "__main__":
         "Usage:\n"
         "  Analyze ROOT files and save processed arrays:\n"
         "    python main.py <track_files/wildcards> <hit_files/wildcards> "
-        "[max_events_with_tracks] [workers] [output_prefix]\n\n"
+        "[max_events_with_tracks] [workers] [output_prefix] [--save-detector-view]\n\n"
         "  Replot from saved processed file only:\n"
-        "    python main.py --load <saved_results.npz> [output_prefix]\n"
+        "    python main.py --load <saved_results.npz> [output_prefix] [--save-detector-view]\n"
     )
 
     if len(sys.argv) < 2:
@@ -174,7 +177,12 @@ if __name__ == "__main__":
 
         saved_results_file = sys.argv[2]
         output_prefix = sys.argv[3] if len(sys.argv) > 3 else ""
-        plot_from_saved_file(saved_results_file, output_prefix=output_prefix)
+        save_detector_view = "--save-detector-view" in sys.argv[3:]
+        plot_from_saved_file(
+            saved_results_file,
+            output_prefix=output_prefix,
+            save_detector_view=save_detector_view,
+        )
         sys.exit(0)
 
     if len(sys.argv) < 3:
@@ -186,6 +194,7 @@ if __name__ == "__main__":
     max_events_with_tracks = int(sys.argv[3]) if len(sys.argv) > 3 else 1
     workers = int(sys.argv[4]) if len(sys.argv) > 4 else 4
     output_prefix = sys.argv[5] if len(sys.argv) > 5 else ""
+    save_detector_view = "--save-detector-view" in sys.argv[3:]
 
     inspect_and_plot_all_tracks_parallel(
         track_file_patterns=track_patterns,
@@ -193,6 +202,7 @@ if __name__ == "__main__":
         max_events_with_tracks=max_events_with_tracks,
         workers=workers,
         output_prefix=output_prefix,
+        save_detector_view=save_detector_view,
         verbose=False,
         save_processed=True,
     )
