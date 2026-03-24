@@ -85,7 +85,15 @@ def _plot_scatter(true_values, reco_values, output_name, title, xlabel, ylabel):
     plt.close()
 
 
-def _plot_resolution_vs_true_momentum(true_momentum, relative_resolution, output_name, title, ylabel, bins=20):
+def _plot_resolution_vs_true_momentum(
+    true_momentum,
+    relative_resolution,
+    output_name,
+    title,
+    ylabel,
+    bins=20,
+    max_abs_relative_resolution=0.8,
+):
     plt.figure(figsize=(9, 6))
     ax = plt.gca()
     ax_hist = ax.twinx()
@@ -94,6 +102,7 @@ def _plot_resolution_vs_true_momentum(true_momentum, relative_resolution, output
     relative_resolution = np.asarray(relative_resolution, dtype=float)
 
     valid = np.isfinite(true_momentum) & np.isfinite(relative_resolution)
+    valid &= np.abs(relative_resolution) <= max_abs_relative_resolution
     true_momentum = true_momentum[valid]
     relative_resolution = relative_resolution[valid]
     positive_momentum = true_momentum[true_momentum > 0]
