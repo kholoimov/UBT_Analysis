@@ -367,6 +367,7 @@ def analyze_selected_event_in_pair(args):
             and last_ubt_hit.time_ns is not None
             and first_straw_hit.time_ns is not None
             and first_st_state is not None
+            and len(first_st_state) >= 6
             and extrapolated_last_ubt_hit is not None
         ):
             true_time_ns = first_straw_hit.time_ns - last_ubt_hit.time_ns
@@ -376,9 +377,9 @@ def analyze_selected_event_in_pair(args):
                 y=first_st_state[1],
                 z=first_st_state[2],
                 mcid=mcid,
-                px=first_st_state[3] if len(first_st_state) > 3 else saved_ref_state[3],
-                py=first_st_state[4] if len(first_st_state) > 4 else saved_ref_state[4],
-                pz=first_st_state[5] if len(first_st_state) > 5 else saved_ref_state[5],
+                px=first_st_state[3],
+                py=first_st_state[4],
+                pz=first_st_state[5],
             )
 
             dx = first_state_vector.x - extrapolated_last_ubt_hit.x
@@ -387,9 +388,9 @@ def analyze_selected_event_in_pair(args):
             distance_cm = math.sqrt(dx * dx + dy * dy + dz * dz)
 
             beta = _calculate_beta_from_momentum(
-                saved_ref_state[3],
-                saved_ref_state[4],
-                saved_ref_state[5],
+                first_state_vector.px,
+                first_state_vector.py,
+                first_state_vector.pz,
             )
 
             if beta is not None and beta > 0.0:
