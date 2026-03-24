@@ -103,6 +103,23 @@ def plot_residual_vs_state_coordinate(
     plt.close()
 
 
+def plot_timing_comparison(true_time_ns, reco_time_ns, name="timing_comparison"):
+    plt.figure(figsize=(8, 6))
+    plt.scatter(true_time_ns, reco_time_ns, s=8)
+    plt.xlabel("True MC time [ns]")
+    plt.ylabel("Reconstructed time [ns]")
+    plt.title("Timing: reconstructed vs true")
+    plt.grid(True)
+
+    if len(true_time_ns) > 0 and len(reco_time_ns) > 0:
+        min_val = min(float(np.min(true_time_ns)), float(np.min(reco_time_ns)))
+        max_val = max(float(np.max(true_time_ns)), float(np.max(reco_time_ns)))
+        plt.plot([min_val, max_val], [min_val, max_val], linestyle="--", color="black", linewidth=1.0)
+
+    plt.savefig(build_output_path(f"{name}.png"))
+    plt.close()
+
+
 def plot_2d_ROOT_histogram(x_data, y_data, name="UpstreamTagger_Hit_Map"):
     bin_width = 0.05
 
@@ -362,6 +379,9 @@ def make_all_summary_plots(events, output_prefix=""):
     global_px = results["px"]
     global_py = results["py"]
     global_pz = results["pz"]
+    true_time_ns = results["true_time_ns"]
+    reco_time_ns = results["reco_time_ns"]
+    delta_time_ns = results["delta_time_ns"]
 
     state_x = results["x_state"]
     state_y = results["y_state"]
@@ -554,3 +574,34 @@ def make_all_summary_plots(events, output_prefix=""):
         df["y_true"][~low_momentum],
         name=f"{output_prefix}High_momentum_XY_map",
     )
+
+    if len(true_time_ns) > 0:
+        plot_residual_histogram(
+            true_time_ns,
+            f"{output_prefix}true_time_ns.png",
+            title="True MC time between last UBT hit and first StrawTubes hit",
+            bins=100,
+        )
+
+    if len(reco_time_ns) > 0:
+        plot_residual_histogram(
+            reco_time_ns,
+            f"{output_prefix}reconstructed_time_ns.png",
+            title="Reconstructed time between extrapolated UBT hit and first ST state",
+            bins=100,
+        )
+
+    if len(delta_time_ns) > 0:
+        plot_residual_histogram(
+            delta_time_ns,
+            f"{output_prefix}timing_resolution_ns.png",
+            title="Timing resolution: reconstructed minus true",
+            bins=100,
+        )
+
+    if len(true_time_ns) > 0 and len(reco_time_ns) > 0:
+        plot_timing_comparison(
+            true_time_ns,
+            reco_time_ns,
+            name=f"{output_prefix}timing_true_vs_reconstructed",
+        )

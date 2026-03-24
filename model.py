@@ -12,6 +12,7 @@ class MomentumVector:
     px: float = 0.0
     py: float = 0.0
     pz: float = 0.0
+    time_ns: float | None = None
 
     def p_mag(self):
         return float(np.sqrt(self.px * self.px + self.py * self.py + self.pz * self.pz))
@@ -37,11 +38,25 @@ class Residual:
 
 
 @dataclass
+class TimingMeasurement:
+    mcid: int
+    true_time_ns: float
+    reco_time_ns: float
+    delta_time_ns: float
+    distance_cm: float
+    beta: float
+    ubt_hit: MomentumVector
+    st_state: MomentumVector
+    extrapolated_hit: MomentumVector
+
+
+@dataclass
 class EventInformation:
     UBT_hits: list[MomentumVector] = field(default_factory=list)
     ExtraStates: list[MomentumVector] = field(default_factory=list)
     ST_tracks: list[STTrack] = field(default_factory=list)
     residuals: list[Residual] = field(default_factory=list)
+    timing_measurements: list[TimingMeasurement] = field(default_factory=list)
 
     def addUBTHit(self, hit):
         self.UBT_hits.append(hit)
@@ -55,12 +70,23 @@ class EventInformation:
     def addResidual(self, residual):
         self.residuals.append(residual)
 
+    def addTimingMeasurement(self, timing_measurement):
+        self.timing_measurements.append(timing_measurement)
+
 
 def _collect_residual_field(events, getter):
     values = []
     for event in events:
         for residual in event.residuals:
             values.append(getter(residual))
+    return np.asarray(values, dtype=float)
+
+
+def _collect_timing_field(events, getter):
+    values = []
+    for event in events:
+        for timing_measurement in event.timing_measurements:
+            values.append(getter(timing_measurement))
     return np.asarray(values, dtype=float)
 
 
@@ -79,4 +105,7 @@ def extract_plot_data(events):
         "x_hit": _collect_residual_field(events, lambda r: r.hit.x),
         "y_hit": _collect_residual_field(events, lambda r: r.hit.y),
         "z_hit": _collect_residual_field(events, lambda r: r.hit.z),
+        "true_time_ns": _collect_timing_field(events, lambda t: t.true_time_ns),
+        "reco_time_ns": _collect_timing_field(events, lambda t: t.reco_time_ns),
+        "delta_time_ns": _collect_timing_field(events, lambda t: t.delta_time_ns),
     }
