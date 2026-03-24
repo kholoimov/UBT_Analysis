@@ -50,10 +50,10 @@ def _fill_momentum(point, vector):
     return None
 
 
-def _plot_histogram(values, output_name, title, xlabel):
+def _plot_histogram(values, output_name, title, xlabel, range = None):
     plt.figure(figsize=(8, 6))
     if len(values) > 0:
-        plt.hist(values, bins=100, histtype="step", linewidth=1.8)
+        plt.hist(values, bins=40, histtype="step", linewidth=1.8, range = range)
         mean_val = np.mean(values)
         rms_val = np.std(values)
         plt.axvline(mean_val, linestyle="--", label=f"mean = {mean_val:.3f}")
@@ -322,20 +322,27 @@ def CompareTrackMomentum(
     reco_p_last = np.sqrt(np.asarray(reco_px_last) ** 2 + np.asarray(reco_py_last) ** 2 + np.asarray(reco_pz_last) ** 2)
     true_p_last = np.sqrt(np.asarray(true_px_last) ** 2 + np.asarray(true_py_last) ** 2 + np.asarray(true_pz_last) ** 2)
 
-    _plot_histogram(reco_p - true_p, f"{output_prefix}momentum_resolution_p.png", "Momentum resolution", "p_reco - p_true")
-    _plot_histogram(np.asarray(reco_px) - np.asarray(true_px), f"{output_prefix}momentum_resolution_px.png", "Px resolution", "px_reco - px_true")
-    _plot_histogram(np.asarray(reco_py) - np.asarray(true_py), f"{output_prefix}momentum_resolution_py.png", "Py resolution", "py_reco - py_true")
-    _plot_histogram(np.asarray(reco_pz) - np.asarray(true_pz), f"{output_prefix}momentum_resolution_pz.png", "Pz resolution", "pz_reco - pz_true")
+    histograms_range = {
+        "x": [-0.15, 0.15],
+        "y": [-0.15, 0.15],
+        "z": [-1, 5],
+        "mag": [-1, 5]
+    }
+
+    _plot_histogram(reco_p - true_p, f"{output_prefix}momentum_resolution_p.png", "Momentum resolution", "p_reco - p_true", range = histograms_range["mag"])
+    _plot_histogram(np.asarray(reco_px) - np.asarray(true_px), f"{output_prefix}momentum_resolution_px.png", "Px resolution", "px_reco - px_true", range = histograms_range["x"])
+    _plot_histogram(np.asarray(reco_py) - np.asarray(true_py), f"{output_prefix}momentum_resolution_py.png", "Py resolution", "py_reco - py_true", range = histograms_range["y"])
+    _plot_histogram(np.asarray(reco_pz) - np.asarray(true_pz), f"{output_prefix}momentum_resolution_pz.png", "Pz resolution", "pz_reco - pz_true", range = histograms_range["z"])
 
     _plot_scatter(true_p, reco_p, f"{output_prefix}momentum_true_vs_reco_p.png", "Reco vs true momentum", "p_true", "p_reco")
     _plot_scatter(np.asarray(true_px), np.asarray(reco_px), f"{output_prefix}momentum_true_vs_reco_px.png", "Reco vs true px", "px_true", "px_reco")
     _plot_scatter(np.asarray(true_py), np.asarray(reco_py), f"{output_prefix}momentum_true_vs_reco_py.png", "Reco vs true py", "py_true", "py_reco")
     _plot_scatter(np.asarray(true_pz), np.asarray(reco_pz), f"{output_prefix}momentum_true_vs_reco_pz.png", "Reco vs true pz", "pz_true", "pz_reco")
 
-    _plot_histogram(reco_p_last - true_p_last, f"{output_prefix}momentum_resolution_last_p.png", "Momentum resolution at last state", "p_reco(last) - p_true(last)")
-    _plot_histogram(np.asarray(reco_px_last) - np.asarray(true_px_last), f"{output_prefix}momentum_resolution_last_px.png", "Px resolution at last state", "px_reco(last) - px_true(last)")
-    _plot_histogram(np.asarray(reco_py_last) - np.asarray(true_py_last), f"{output_prefix}momentum_resolution_last_py.png", "Py resolution at last state", "py_reco(last) - py_true(last)")
-    _plot_histogram(np.asarray(reco_pz_last) - np.asarray(true_pz_last), f"{output_prefix}momentum_resolution_last_pz.png", "Pz resolution at last state", "pz_reco(last) - pz_true(last)")
+    _plot_histogram(reco_p_last - true_p_last, f"{output_prefix}momentum_resolution_last_p.png", "Momentum resolution at last state", "p_reco(last) - p_true(last)", range = histograms_range["mag"])
+    _plot_histogram(np.asarray(reco_px_last) - np.asarray(true_px_last), f"{output_prefix}momentum_resolution_last_px.png", "Px resolution at last state", "px_reco(last) - px_true(last)", range = histograms_range["x"])
+    _plot_histogram(np.asarray(reco_py_last) - np.asarray(true_py_last), f"{output_prefix}momentum_resolution_last_py.png", "Py resolution at last state", "py_reco(last) - py_true(last)", range = histograms_range["y"])
+    _plot_histogram(np.asarray(reco_pz_last) - np.asarray(true_pz_last), f"{output_prefix}momentum_resolution_last_pz.png", "Pz resolution at last state", "pz_reco(last) - pz_true(last)", range = histograms_range["z"])
 
     _plot_scatter(true_p_last, reco_p_last, f"{output_prefix}momentum_true_vs_reco_last_p.png", "Reco vs true momentum at last state", "p_true(last)", "p_reco(last)")
     _plot_scatter(np.asarray(true_px_last), np.asarray(reco_px_last), f"{output_prefix}momentum_true_vs_reco_last_px.png", "Reco vs true px at last state", "px_true(last)", "px_reco(last)")
