@@ -7,11 +7,14 @@ from analysis_io import build_output_path
 from model import extract_plot_data
 
 
-def plot_residual_histogram(residuals, output_name, title="Track-hit residuals", bins=100):
+def plot_residual_histogram(residuals, output_name, title="Track-hit residuals", range = None, bins=100, xlabel = r"Residual distance $\sqrt{(x_{state}-x_{hit})^2 + (y_{state}-y_{hit})^2}$"):
     plt.figure(figsize=(8, 6))
 
     if len(residuals) > 0:
-        plt.hist(residuals, bins=bins, histtype="step", linewidth=1.8)
+        if range is not None:
+            plt.hist(residuals, bins=bins, histtype="step", linewidth=1.8, range = range)
+        else:
+            plt.hist(residuals, bins=bins, histtype="step", linewidth=1.8)
         mean_val = np.mean(residuals)
         rms_val = np.std(residuals)
         plt.axvline(mean_val, linestyle="--", label=f"mean = {mean_val:.3f}")
@@ -20,7 +23,7 @@ def plot_residual_histogram(residuals, output_name, title="Track-hit residuals",
     else:
         print(f"{title}: no entries")
 
-    plt.xlabel(r"Residual distance $\sqrt{(x_{state}-x_{hit})^2 + (y_{state}-y_{hit})^2}$")
+    plt.xlabel(xlabel)
     plt.ylabel("Entries")
     plt.title(title)
     plt.grid(True)
@@ -596,7 +599,9 @@ def make_all_summary_plots(events, output_prefix=""):
             delta_time_ns,
             f"{output_prefix}timing_resolution_ns.png",
             title="Timing resolution: reconstructed minus true",
+            xlabel = "Timing resolution (true - reco) [ns]",
             bins=100,
+            range = (-1.0, 1.0)
         )
 
     if len(true_time_ns) > 0 and len(reco_time_ns) > 0:
