@@ -15,16 +15,20 @@ from track_state import (
 
 from model import EventInformation, MomentumVector, Residual, STTrack, TimingMeasurement
 
+
 def InvestigateTracks(
     track_file_patterns,
-    track_tree_name = "ship_reco_sim"
+    hit_file_patterns=None,
+    track_tree_name="ship_reco_sim",
+    max_events_with_tracks=1,
+    workers=4,
+    output_prefix="",
 ):
-    
+    del hit_file_patterns, max_events_with_tracks, workers, output_prefix
     ROOT = get_ROOT()
 
     track_chain = ROOT.TChain(track_tree_name)
     track_chain.Add(track_file_patterns)
-
 
     TOTAL_EVENTS = int(track_chain.GetEntries())
 
@@ -42,32 +46,14 @@ def InvestigateTracks(
         for tr in fit_tracks:
             number_of_measurements = tr.getNumPointsWithMeasurement()
 
-            fitStatus   = tr.getFitStatus()
+            fitStatus = tr.getFitStatus()
             ndf = fitStatus.getNdf()
             chi2 = fitStatus.getChi2()
 
-            print("Track FIT Status: chi2/NDS = ", chi2/ndf)
+            print("Track FIT Status: chi2/NDS = ", chi2 / ndf)
             print(f"TRACK {i} with N_measurements = {number_of_measurements}")
 
-            # for point_num, point in enumerate(tr.getPointsWithMeasurement()):
-            #     print("="*100)
-            #     print(f"MEASUREMENT N{point_num}")
-            #     print(point.getRawMeasurement().getRawHitCoords()[0], point.getRawMeasurement().getRawHitCoords()[1],
-            #           point.getRawMeasurement().getRawHitCoords()[2])
-
             print(f"TRACK {i} with N states = {tr.getNumPoints()}")
-
-            # for point_num in range(tr.getNumPoints()):
-            #     state = tr.getFittedState(point_num)
-            #     pos = state.getPos()
-            #     mom = state.getMom()
-
-            #     print(f"STATE N{point_num}")
-            #     print(pos.X(), pos.Y(), pos.Z())
-            #     print(mom.X(), mom.Y(), mom.Z())
-
             print("Track Lenght: ", fitStatus.getTrackLen())
 
         break
-
-
