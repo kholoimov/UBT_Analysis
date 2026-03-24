@@ -173,6 +173,12 @@ if __name__ == "__main__":
         "    python main.py --load <saved_results.npz> [output_prefix] [--save-detector-view]\n"
     )
 
+    if (sys.argv[1] == "--investigate-tracks"):
+        InvestigateTracks(
+            track_file_patterns=sys.argv[2],
+        )
+        sys.exit(0)
+
     if len(sys.argv) < 2:
         print(usage)
         sys.exit(1)
@@ -216,10 +222,6 @@ if __name__ == "__main__":
     if mode == "--investigate-tracks":
         InvestigateTracks(
             track_file_patterns=track_patterns,
-            hit_file_patterns=hit_patterns,
-            max_events_with_tracks=max_events_with_tracks,
-            workers=workers,
-            output_prefix=output_prefix,
         )
         sys.exit(0)
 

@@ -382,20 +382,53 @@ def analyze_selected_event_in_pair(args):
                 pz=first_st_state[5],
             )
 
+            # dx = first_state_vector.x - extrapolated_last_ubt_hit.x
+            # dy = first_state_vector.y - extrapolated_last_ubt_hit.y
+            # dz = first_state_vector.z - extrapolated_last_ubt_hit.z
+            # distance_cm = math.sqrt(dx * dx + dy * dy + dz * dz)
+
+            # beta = _calculate_beta_from_momentum(
+            #     first_state_vector.px,
+            #     first_state_vector.py,
+            #     first_state_vector.pz,
+            # )
+
+            # if beta is not None and beta > 0.0:
+            #     reco_time_ns = distance_cm / (beta * SPEED_OF_LIGHT_CM_PER_NS)
             dx = first_state_vector.x - extrapolated_last_ubt_hit.x
             dy = first_state_vector.y - extrapolated_last_ubt_hit.y
             dz = first_state_vector.z - extrapolated_last_ubt_hit.z
             distance_cm = math.sqrt(dx * dx + dy * dy + dz * dz)
 
-            beta = _calculate_beta_from_momentum(
-                first_state_vector.px,
-                first_state_vector.py,
-                first_state_vector.pz,
-            )
+            px = first_state_vector.px
+            py = first_state_vector.py
+            pz = first_state_vector.pz
 
-            if beta is not None and beta > 0.0:
-                reco_time_ns = distance_cm / (beta * SPEED_OF_LIGHT_CM_PER_NS)
+            p = math.sqrt(px * px + py * py + pz * pz)
+
+            mass = 0.106  # <-- you must define this (e.g. pion, muon, etc.)
+
+            if p > 0.0:
+                energy = math.sqrt(p * p + mass * mass)
+                reco_time_ns = distance_cm * energy / (p * SPEED_OF_LIGHT_CM_PER_NS)
+
                 delta_time_ns = reco_time_ns - true_time_ns
+                
+                if (delta_time_ns < 0):
+                    print("\n")
+                    print("=" * 100)
+                    print("UBT hit X: ", last_ubt_hit.x, " Y: ", last_ubt_hit.y, " Z: ", last_ubt_hit.z, " TIME: ", last_ubt_hit.time_ns)
+                    print("ST hit X: ", first_straw_hit.x, " Y: ", first_straw_hit.y, " Z: ", first_straw_hit.z, " TIME: ", first_straw_hit.time_ns)
+
+                    print("UBT RECO HIT X: ", extrapolated_last_ubt_hit.x, " Y: ", extrapolated_last_ubt_hit.y, " Z: ", extrapolated_last_ubt_hit.z)
+                    print("ST hit X: ", first_state_vector.x, " Y: ", first_state_vector.y, " Z: ", first_state_vector.z)
+                    print("ST momentum PX: ", first_state_vector.px, " PY: ", first_state_vector.py, " PZ: ", first_state_vector.pz)
+
+                    print("TRUE TIME: ", true_time_ns)
+                    print("RECO TIME: ", reco_time_ns)
+                    print("=" * 100)
+                    print("\n")
+
                 event_info.addTimingMeasurement(
                     TimingMeasurement(
                         mcid=mcid,
@@ -403,7 +436,7 @@ def analyze_selected_event_in_pair(args):
                         reco_time_ns=reco_time_ns,
                         delta_time_ns=delta_time_ns,
                         distance_cm=distance_cm,
-                        beta=beta,
+                        beta=0,
                         ubt_hit=last_ubt_hit,
                         st_state=first_state_vector,
                         extrapolated_hit=extrapolated_last_ubt_hit,
