@@ -187,6 +187,11 @@ def build_parser():
 
     compare_parser = subparsers.add_parser("compare-track-momentum", help="Compare reconstructed and true track momentum")
     add_analysis_args(compare_parser, include_detector_view=False)
+    compare_parser.add_argument(
+        "--save-track-example",
+        action="store_true",
+        help="Save one example track-state plot showing first and last fitted states",
+    )
 
     load_parser = subparsers.add_parser("load", help="Replot from a saved processed file")
     load_parser.add_argument("saved_results_file", help="Saved analysis results pickle")
@@ -255,6 +260,7 @@ if __name__ == "__main__":
             max_events_with_tracks=args.max_events_with_tracks,
             workers=args.workers,
             output_prefix=args.output_prefix,
+            save_track_example=args.save_track_example,
         )
     else:
         inspect_and_plot_all_tracks_parallel(

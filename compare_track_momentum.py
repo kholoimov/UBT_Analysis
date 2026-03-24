@@ -181,6 +181,154 @@ def _plot_resolution_vs_true_momentum(
     plt.close()
 
 
+def _plot_track_state_example(
+    reco_points,
+    straw_hits,
+    output_name,
+    title,
+):
+    if not reco_points:
+        return
+
+    reco_points = sorted(reco_points, key=lambda point: point[2])
+    first_state = reco_points[0]
+    last_state = reco_points[-1]
+
+    straw_hits = sorted(straw_hits, key=lambda hit: hit["z"])
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5), sharex=True)
+    views = (
+        (0, "x", "X [cm]", "XZ view"),
+        (1, "y", "Y [cm]", "YZ view"),
+    )
+
+    for axis, coord_index, coord_label, view_title in views:
+        ax = axes[axis]
+        reco_coord_index = 0 if coord_index == "x" else 1
+        truth_key = coord_index
+
+        reco_z = [point[2] for point in reco_points]
+        reco_coord = [point[reco_coord_index] for point in reco_points]
+        ax.plot(reco_z, reco_coord, color="tab:blue", linewidth=1.7, label="STTrack states")
+
+        if straw_hits:
+            ax.scatter(
+                [hit["z"] for hit in straw_hits],
+                [hit[truth_key] for hit in straw_hits],
+                s=18,
+                color="black",
+                alpha=0.65,
+                label="StrawTubes MC hits",
+            )
+
+        ax.scatter(first_state[2], first_state[reco_coord_index], s=70, color="tab:green", zorder=4, label="First state used in code")
+        ax.scatter(last_state[2], last_state[reco_coord_index], s=70, color="tab:red", zorder=4, label="Last state (max Z)")
+
+        ax.annotate(
+            "first state",
+            xy=(first_state[2], first_state[reco_coord_index]),
+            xytext=(8, 8),
+            textcoords="offset points",
+            color="tab:green",
+        )
+        ax.annotate(
+            "last state",
+            xy=(last_state[2], last_state[reco_coord_index]),
+            xytext=(8, -14),
+            textcoords="offset points",
+            color="tab:red",
+        )
+
+        ax.set_xlabel("Z [cm]")
+        ax.set_ylabel(coord_label)
+        ax.set_title(view_title)
+        ax.grid(True, alpha=0.3)
+
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="upper center", ncol=3, frameon=False)
+    fig.suptitle(title)
+    fig.tight_layout(rect=(0, 0, 1, 0.92))
+    fig.savefig(build_output_path(output_name))
+    plt.close(fig)
+
+
+def _save_example_track_plot(
+    track_files,
+    hit_files,
+    track_tree_name,
+    hit_tree_name,
+    track_branch_name,
+    straw_branch_name,
+    output_prefix="",
+):
+    ROOT = get_ROOT()
+
+    for track_file, hit_file in zip(track_files, hit_files):
+        track_chain = ROOT.TChain(track_tree_name)
+        hit_chain = ROOT.TChain(hit_tree_name)
+        track_chain.Add(track_file)
+        hit_chain.Add(hit_file)
+
+        n_events = min(int(track_chain.GetEntries()), int(hit_chain.GetEntries()))
+        for event_number in range(n_events):
+            if track_chain.GetEntry(event_number) <= 0 or hit_chain.GetEntry(event_number) <= 0:
+                continue
+
+            fit_tracks = get_branch_object(track_chain, track_branch_name)
+            straw_points = get_branch_object(hit_chain, straw_branch_name)
+            if straw_points is None:
+                straw_points = get_branch_object(hit_chain, "StrawtubesPoint")
+            mc_track_ids = get_branch_object(track_chain, "fitTrack2MC")
+
+            if fit_tracks is None or straw_points is None:
+                continue
+
+            straw_hits_by_mcid = {}
+            n_straw = get_collection_size(straw_points)
+            for i in range(n_straw):
+                hit = get_collection_item(straw_points, i)
+                if hit is None:
+                    continue
+                mcid = _get_track_id(hit)
+                if mcid is None:
+                    continue
+                straw_hits_by_mcid.setdefault(mcid, []).append(
+                    {
+                        "x": float(hit.GetX()),
+                        "y": float(hit.GetY()),
+                        "z": float(hit.GetZ()),
+                    }
+                )
+
+            n_tracks = get_collection_size(fit_tracks)
+            for itrk in range(n_tracks):
+                track = get_collection_item(fit_tracks, itrk)
+                if track is None:
+                    continue
+
+                mcid = itrk
+                if mc_track_ids is not None:
+                    mcid_obj = get_collection_item(mc_track_ids, itrk)
+                    if mcid_obj is not None:
+                        mcid = int(mcid_obj)
+
+                reco_points = get_all_track_points(track)
+                if len(reco_points) < 2:
+                    continue
+
+                matched_straw_hits = straw_hits_by_mcid.get(mcid, [])
+                if not matched_straw_hits:
+                    continue
+
+                title = f"Track state example: event {event_number}, track {itrk}, MCID {mcid}"
+                output_name = f"{output_prefix}track_state_example_event_{event_number}_track_{itrk}.png"
+                _plot_track_state_example(reco_points, matched_straw_hits, output_name, title)
+                print(f"Saved example track-state plot: {output_name}")
+                return
+
+    print("No matched track found for example track-state plot.")
+
+
 def _process_momentum_chunk(args):
     (
         chunk_index,
@@ -323,6 +471,7 @@ def CompareTrackMomentum(
     max_events_with_tracks=1,
     workers=4,
     output_prefix="",
+    save_track_example=False,
 ):
     track_files = expand_patterns(track_file_patterns)
     hit_files = expand_patterns(hit_file_patterns)
@@ -467,6 +616,17 @@ def CompareTrackMomentum(
     _plot_scatter(np.asarray(true_px_last), np.asarray(reco_px_last), f"{output_prefix}momentum_true_vs_reco_last_px.png", "Reco vs true px at last state", "px_true(last)", "px_reco(last)")
     _plot_scatter(np.asarray(true_py_last), np.asarray(reco_py_last), f"{output_prefix}momentum_true_vs_reco_last_py.png", "Reco vs true py at last state", "py_true(last)", "py_reco(last)")
     _plot_scatter(np.asarray(true_pz_last), np.asarray(reco_pz_last), f"{output_prefix}momentum_true_vs_reco_last_pz.png", "Reco vs true pz at last state", "pz_true(last)", "pz_reco(last)")
+
+    if save_track_example:
+        _save_example_track_plot(
+            track_files,
+            hit_files,
+            track_tree_name,
+            hit_tree_name,
+            track_branch_name,
+            straw_branch_name,
+            output_prefix=output_prefix,
+        )
 
     print(f"Processed events for momentum comparison: {processed_events}")
     print(f"Matched tracks for momentum comparison: {len(reco_p)}")
