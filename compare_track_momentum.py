@@ -1,4 +1,6 @@
 import math
+import multiprocessing as mp
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -85,6 +87,116 @@ def _plot_scatter(true_values, reco_values, output_name, title, xlabel, ylabel):
     plt.close()
 
 
+def _process_momentum_chunk(args):
+    (
+        chunk_index,
+        track_file,
+        hit_file,
+        track_tree_name,
+        hit_tree_name,
+        track_branch_name,
+        straw_branch_name,
+        event_start,
+        event_end,
+    ) = args
+
+    ROOT = get_ROOT()
+    track_chain = ROOT.TChain(track_tree_name)
+    hit_chain = ROOT.TChain(hit_tree_name)
+    track_chain.Add(track_file)
+    hit_chain.Add(hit_file)
+
+    true_px = []
+    true_py = []
+    true_pz = []
+    reco_px = []
+    reco_py = []
+    reco_pz = []
+    processed_events = 0
+
+    for event_number in range(event_start, event_end):
+        if track_chain.GetEntry(event_number) <= 0 or hit_chain.GetEntry(event_number) <= 0:
+            continue
+
+        fit_tracks = get_branch_object(track_chain, track_branch_name)
+        straw_points = get_branch_object(hit_chain, straw_branch_name)
+        if straw_points is None:
+            straw_points = get_branch_object(hit_chain, "StrawtubesPoint")
+        mc_track_ids = get_branch_object(track_chain, "fitTrack2MC")
+
+        if fit_tracks is None or straw_points is None:
+            continue
+
+        straw_hits_by_mcid = {}
+        n_straw = get_collection_size(straw_points)
+        mom_true = ROOT.TVector3()
+        for i in range(n_straw):
+            hit = get_collection_item(straw_points, i)
+            if hit is None:
+                continue
+            mcid = _get_track_id(hit)
+            if mcid is None:
+                continue
+            momentum = _fill_momentum(hit, mom_true)
+            if momentum is None:
+                continue
+            straw_hits_by_mcid.setdefault(mcid, []).append(
+                {
+                    "z": float(hit.GetZ()),
+                    "px": momentum[0],
+                    "py": momentum[1],
+                    "pz": momentum[2],
+                }
+            )
+
+        n_tracks = get_collection_size(fit_tracks)
+        found_track_in_event = False
+        for itrk in range(n_tracks):
+            track = get_collection_item(fit_tracks, itrk)
+            if track is None:
+                continue
+
+            mcid = itrk
+            if mc_track_ids is not None:
+                mcid_obj = get_collection_item(mc_track_ids, itrk)
+                if mcid_obj is not None:
+                    mcid = int(mcid_obj)
+
+            reco_points = get_all_track_points(track)
+            if not reco_points or len(reco_points[0]) < 6:
+                continue
+
+            matched_straw_hits = straw_hits_by_mcid.get(mcid, [])
+            if not matched_straw_hits:
+                continue
+
+            first_straw_hit = min(matched_straw_hits, key=lambda hit: hit["z"])
+            first_reco_state = reco_points[0]
+
+            reco_px.append(float(first_reco_state[3]))
+            reco_py.append(float(first_reco_state[4]))
+            reco_pz.append(float(first_reco_state[5]))
+
+            true_px.append(float(first_straw_hit["px"]))
+            true_py.append(float(first_straw_hit["py"]))
+            true_pz.append(float(first_straw_hit["pz"]))
+            found_track_in_event = True
+
+        if found_track_in_event:
+            processed_events += 1
+
+    return {
+        "chunk_index": chunk_index,
+        "processed_events": processed_events,
+        "true_px": true_px,
+        "true_py": true_py,
+        "true_pz": true_pz,
+        "reco_px": reco_px,
+        "reco_py": reco_py,
+        "reco_pz": reco_pz,
+    }
+
+
 def CompareTrackMomentum(
     track_file_patterns,
     hit_file_patterns,
@@ -96,8 +208,6 @@ def CompareTrackMomentum(
     workers=4,
     output_prefix="",
 ):
-    del workers
-
     track_files = expand_patterns(track_file_patterns)
     hit_files = expand_patterns(hit_file_patterns)
 
@@ -121,90 +231,57 @@ def CompareTrackMomentum(
     reco_py = []
     reco_pz = []
     processed_events = 0
-
-    for pair_index, (track_file, hit_file) in enumerate(zip(track_files, hit_files)):
+    chunk_args = []
+    chunk_index = 0
+    chunk_size_divisor = max(1, workers)
+    for track_file, hit_file in zip(track_files, hit_files):
         track_chain = ROOT.TChain(track_tree_name)
         hit_chain = ROOT.TChain(hit_tree_name)
         track_chain.Add(track_file)
         hit_chain.Add(hit_file)
-
         n_events = min(int(track_chain.GetEntries()), int(hit_chain.GetEntries()))
-        for event_number in range(n_events):
-            if processed_events >= max_events_with_tracks:
-                break
+        if n_events <= 0:
+            continue
 
-            if track_chain.GetEntry(event_number) <= 0 or hit_chain.GetEntry(event_number) <= 0:
-                continue
-
-            fit_tracks = get_branch_object(track_chain, track_branch_name)
-            straw_points = get_branch_object(hit_chain, straw_branch_name)
-            if straw_points is None:
-                straw_points = get_branch_object(hit_chain, "StrawtubesPoint")
-            mc_track_ids = get_branch_object(track_chain, "fitTrack2MC")
-
-            if fit_tracks is None or straw_points is None:
-                continue
-
-            straw_hits_by_mcid = {}
-            n_straw = get_collection_size(straw_points)
-            mom_true = ROOT.TVector3()
-            for i in range(n_straw):
-                hit = get_collection_item(straw_points, i)
-                if hit is None:
-                    continue
-                mcid = _get_track_id(hit)
-                if mcid is None:
-                    continue
-                momentum = _fill_momentum(hit, mom_true)
-                if momentum is None:
-                    continue
-                straw_hits_by_mcid.setdefault(mcid, []).append(
-                    {
-                        "z": float(hit.GetZ()),
-                        "px": momentum[0],
-                        "py": momentum[1],
-                        "pz": momentum[2],
-                    }
+        chunk_size = max(1, math.ceil(n_events / chunk_size_divisor))
+        for event_start in range(0, n_events, chunk_size):
+            event_end = min(event_start + chunk_size, n_events)
+            chunk_args.append(
+                (
+                    chunk_index,
+                    track_file,
+                    hit_file,
+                    track_tree_name,
+                    hit_tree_name,
+                    track_branch_name,
+                    straw_branch_name,
+                    event_start,
+                    event_end,
                 )
+            )
+            chunk_index += 1
 
-            n_tracks = get_collection_size(fit_tracks)
-            found_track_in_event = False
-            for itrk in range(n_tracks):
-                track = get_collection_item(fit_tracks, itrk)
-                if track is None:
-                    continue
+    chunk_results = []
+    if chunk_args:
+        ctx = mp.get_context("spawn")
+        with ProcessPoolExecutor(max_workers=min(workers, len(chunk_args)), mp_context=ctx) as executor:
+            futures = [executor.submit(_process_momentum_chunk, arg) for arg in chunk_args]
+            for fut in as_completed(futures):
+                chunk_results.append(fut.result())
 
-                mcid = itrk
-                if mc_track_ids is not None:
-                    mcid_obj = get_collection_item(mc_track_ids, itrk)
-                    if mcid_obj is not None:
-                        mcid = int(mcid_obj)
+    chunk_results.sort(key=lambda item: item["chunk_index"])
 
-                reco_points = get_all_track_points(track)
-                if not reco_points or len(reco_points[0]) < 6:
-                    continue
-
-                matched_straw_hits = straw_hits_by_mcid.get(mcid, [])
-                if not matched_straw_hits:
-                    continue
-
-                first_straw_hit = min(matched_straw_hits, key=lambda hit: hit["z"])
-                first_reco_state = reco_points[0]
-
-                reco_px.append(float(first_reco_state[3]))
-                reco_py.append(float(first_reco_state[4]))
-                reco_pz.append(float(first_reco_state[5]))
-
-                true_px.append(float(first_straw_hit["px"]))
-                true_py.append(float(first_straw_hit["py"]))
-                true_pz.append(float(first_straw_hit["pz"]))
-                found_track_in_event = True
-
-            if found_track_in_event:
-                processed_events += 1
-
+    for result in chunk_results:
         if processed_events >= max_events_with_tracks:
             break
+
+        processed_events += result["processed_events"]
+        true_px.extend(result["true_px"])
+        true_py.extend(result["true_py"])
+        true_pz.extend(result["true_pz"])
+        reco_px.extend(result["reco_px"])
+        reco_py.extend(result["reco_py"])
+        reco_pz.extend(result["reco_pz"])
 
     reco_p = np.sqrt(np.asarray(reco_px) ** 2 + np.asarray(reco_py) ** 2 + np.asarray(reco_pz) ** 2)
     true_p = np.sqrt(np.asarray(true_px) ** 2 + np.asarray(true_py) ** 2 + np.asarray(true_pz) ** 2)
