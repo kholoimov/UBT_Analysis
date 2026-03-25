@@ -9,6 +9,8 @@ from model import extract_plot_data
 
 def plot_residual_histogram(residuals, output_name, title="Track-hit residuals", range = None, bins=100, xlabel = r"Residual distance $\sqrt{(x_{state}-x_{hit})^2 + (y_{state}-y_{hit})^2}$"):
     plt.figure(figsize=(8, 6))
+    residuals = np.asarray(residuals, dtype=float)
+    residuals = residuals[np.isfinite(residuals)]
 
     if len(residuals) > 0:
         if range is not None:
@@ -17,7 +19,7 @@ def plot_residual_histogram(residuals, output_name, title="Track-hit residuals",
             plt.hist(residuals, bins=bins, histtype="step", linewidth=1.8)
         mean_val = np.mean(residuals)
         rms_val = np.std(residuals)
-        rms_with_bias_val = np.sqrt(np.mean(np.asarray(residuals, dtype=float) ** 2))
+        rms_with_bias_val = np.sqrt(np.mean(residuals ** 2))
         print(f"{title}: N={len(residuals)}, mean={mean_val:.6f}, rms={rms_val:.6f}")
         stats_text = (
             f"N = {len(residuals)}\n"
