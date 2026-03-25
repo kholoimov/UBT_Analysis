@@ -50,6 +50,16 @@ def _fill_momentum(point, vector):
     return None
 
 
+def _get_point_xyz(point):
+    getters = (("GetX", "GetY", "GetZ"), ("X", "Y", "Z"))
+    for names in getters:
+        try:
+            return tuple(float(getattr(point, name)()) for name in names)
+        except Exception:
+            pass
+    return None
+
+
 def _plot_histogram(values, output_name, title, xlabel, range = None):
     plt.figure(figsize=(8, 6))
     if len(values) > 0:
@@ -252,6 +262,50 @@ def _plot_track_state_example(
     plt.close(fig)
 
 
+def _plot_detector_truth_example(ubt_hits, timedet_hits, output_name, title):
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5), sharex=True)
+    views = (
+        (0, "x", "X [cm]", "XZ view"),
+        (1, "y", "Y [cm]", "YZ view"),
+    )
+
+    for axis, coord_key, coord_label, view_title in views:
+        ax = axes[axis]
+
+        if ubt_hits:
+            ax.scatter(
+                [hit["z"] for hit in ubt_hits],
+                [hit[coord_key] for hit in ubt_hits],
+                s=24,
+                color="tab:blue",
+                alpha=0.8,
+                label="UBT hits",
+            )
+
+        if timedet_hits:
+            ax.scatter(
+                [hit["z"] for hit in timedet_hits],
+                [hit[coord_key] for hit in timedet_hits],
+                s=24,
+                color="tab:orange",
+                alpha=0.8,
+                label="TimeDetector points",
+            )
+
+        ax.set_xlabel("Z [cm]")
+        ax.set_ylabel(coord_label)
+        ax.set_title(view_title)
+        ax.grid(True, alpha=0.3)
+
+    handles, labels = axes[0].get_legend_handles_labels()
+    if handles:
+        fig.legend(handles, labels, loc="upper center", ncol=2, frameon=False)
+    fig.suptitle(title)
+    fig.tight_layout(rect=(0, 0, 1, 0.92))
+    fig.savefig(build_output_path(output_name))
+    plt.close(fig)
+
+
 def _save_example_track_plot(
     track_files,
     hit_files,
@@ -278,6 +332,8 @@ def _save_example_track_plot(
             straw_points = get_branch_object(hit_chain, straw_branch_name)
             if straw_points is None:
                 straw_points = get_branch_object(hit_chain, "StrawtubesPoint")
+            ubt_points = get_branch_object(hit_chain, "UpstreamTaggerPoint")
+            timedet_points = get_branch_object(hit_chain, "TimeDetPoint")
             mc_track_ids = get_branch_object(track_chain, "fitTrack2MC")
 
             if fit_tracks is None or straw_points is None:
@@ -320,10 +376,31 @@ def _save_example_track_plot(
                 if not matched_straw_hits:
                     continue
 
+                ubt_hits = []
+                for i in range(get_collection_size(ubt_points)):
+                    hit = get_collection_item(ubt_points, i)
+                    coords = _get_point_xyz(hit) if hit is not None else None
+                    if coords is None:
+                        continue
+                    ubt_hits.append({"x": coords[0], "y": coords[1], "z": coords[2]})
+
+                timedet_hits = []
+                for i in range(get_collection_size(timedet_points)):
+                    hit = get_collection_item(timedet_points, i)
+                    coords = _get_point_xyz(hit) if hit is not None else None
+                    if coords is None:
+                        continue
+                    timedet_hits.append({"x": coords[0], "y": coords[1], "z": coords[2]})
+
                 title = f"Track state example: event {event_number}, track {itrk}, MCID {mcid}"
                 output_name = f"{output_prefix}track_state_example_event_{event_number}_track_{itrk}.png"
                 _plot_track_state_example(reco_points, matched_straw_hits, output_name, title)
                 print(f"Saved example track-state plot: {output_name}")
+
+                detector_title = f"Detector truth points: event {event_number}, track {itrk}, MCID {mcid}"
+                detector_output_name = f"{output_prefix}detector_truth_example_event_{event_number}_track_{itrk}.png"
+                _plot_detector_truth_example(ubt_hits, timedet_hits, detector_output_name, detector_title)
+                print(f"Saved detector-truth example plot: {detector_output_name}")
                 return
 
     print("No matched track found for example track-state plot.")
