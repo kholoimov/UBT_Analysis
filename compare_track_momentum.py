@@ -271,12 +271,12 @@ def _plot_detector_truth_example(reco_points, ubt_hits, timedet_hits, output_nam
         (1, "y", "Y [cm]", "YZ view"),
     )
     detector_specs = (
-        ("UBT", 3272.0, 10.0, 100.0, "tab:blue"),
-        ("ST 1", 8407.0, 30.0, 2.0, "tab:green"),
-        ("ST 2", 8607.0, 30.0, 2.0, "tab:green"),
-        ("ST 3", 9307.0, 30.0, 2.0, "tab:green"),
-        ("ST 4", 9507.0, 30.0, 2.0, "tab:green"),
-        ("TimeDet", 105.0, 50.0, 300.0, "tab:orange"),
+        ("UBT", 3272.0, 10.0, 200.0, "tab:blue"),
+        ("ST 1", 8407.0, 30.0, 250.0, "tab:green"),
+        ("ST 2", 8607.0, 30.0, 250.0, "tab:green"),
+        ("ST 3", 9307.0, 30.0, 250.0, "tab:green"),
+        ("ST 4", 9507.0, 30.0, 250.0, "tab:green"),
+        ("TimeDet", 9590.0, 10.0, 300.0, "tab:orange"),
     )
 
     for axis, coord_key, coord_label, view_title in views:
