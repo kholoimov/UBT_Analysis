@@ -355,6 +355,7 @@ def _plot_detector_truth_example(
                 color="tab:red",
                 linestyle="--",
                 linewidth=1.6,
+                zorder=5,
                 label="Extrapolated UBT -> first ST state",
             )
 
@@ -366,6 +367,7 @@ def _plot_detector_truth_example(
                 color="tab:purple",
                 linestyle="-.",
                 linewidth=1.6,
+                zorder=5,
                 label="Last ST state -> TimeDet hit",
             )
 
@@ -421,6 +423,8 @@ def _save_example_track_plot(
             straw_hits_by_mcid = {}
             ubt_hits_by_mcid = {}
             timedet_hits_by_mcid = {}
+            ubt_hits_all = []
+            timedet_hits_all = []
             n_straw = get_collection_size(straw_points)
             for i in range(n_straw):
                 hit = get_collection_item(straw_points, i)
@@ -441,17 +445,23 @@ def _save_example_track_plot(
                 hit = get_collection_item(ubt_points, i)
                 coords = _get_point_xyz(hit) if hit is not None else None
                 mcid = _get_track_id(hit) if hit is not None else None
-                if coords is None or mcid is None:
+                if coords is None:
                     continue
-                ubt_hits_by_mcid.setdefault(mcid, []).append({"x": coords[0], "y": coords[1], "z": coords[2]})
+                point_dict = {"x": coords[0], "y": coords[1], "z": coords[2]}
+                ubt_hits_all.append(point_dict)
+                if mcid is not None:
+                    ubt_hits_by_mcid.setdefault(mcid, []).append(point_dict)
 
             for i in range(get_collection_size(timedet_points)):
                 hit = get_collection_item(timedet_points, i)
                 coords = _get_point_xyz(hit) if hit is not None else None
                 mcid = _get_track_id(hit) if hit is not None else None
-                if coords is None or mcid is None:
+                if coords is None:
                     continue
-                timedet_hits_by_mcid.setdefault(mcid, []).append({"x": coords[0], "y": coords[1], "z": coords[2]})
+                point_dict = {"x": coords[0], "y": coords[1], "z": coords[2]}
+                timedet_hits_all.append(point_dict)
+                if mcid is not None:
+                    timedet_hits_by_mcid.setdefault(mcid, []).append(point_dict)
 
             n_tracks = get_collection_size(fit_tracks)
             for itrk in range(n_tracks):
@@ -473,10 +483,10 @@ def _save_example_track_plot(
                 if not matched_straw_hits:
                     continue
 
-                ubt_hits = ubt_hits_by_mcid.get(mcid, [])
-                timedet_hits = timedet_hits_by_mcid.get(mcid, [])
-                last_ubt_hit = max(ubt_hits, key=lambda hit: hit["z"]) if ubt_hits else None
-                matched_timedet_hit = min(timedet_hits, key=lambda hit: abs(hit["z"] - 105.0)) if timedet_hits else None
+                matched_ubt_hits = ubt_hits_by_mcid.get(mcid, [])
+                matched_timedet_hits = timedet_hits_by_mcid.get(mcid, [])
+                last_ubt_hit = max(matched_ubt_hits, key=lambda hit: hit["z"]) if matched_ubt_hits else None
+                matched_timedet_hit = min(matched_timedet_hits, key=lambda hit: abs(hit["z"] - 105.0)) if matched_timedet_hits else None
                 extrapolated_ubt_hit = None
 
                 if (
@@ -517,8 +527,8 @@ def _save_example_track_plot(
                 detector_output_name = f"{output_prefix}detector_truth_example_event_{event_number}_track_{itrk}.png"
                 _plot_detector_truth_example(
                     reco_points,
-                    ubt_hits,
-                    timedet_hits,
+                    ubt_hits_all,
+                    timedet_hits_all,
                     detector_output_name,
                     extrapolated_ubt_hit=extrapolated_ubt_hit,
                     matched_timedet_hit=matched_timedet_hit,
