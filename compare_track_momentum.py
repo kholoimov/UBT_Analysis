@@ -262,7 +262,7 @@ def _plot_track_state_example(
     plt.close(fig)
 
 
-def _plot_detector_truth_example(ubt_hits, timedet_hits, output_name, title):
+def _plot_detector_truth_example(reco_points, ubt_hits, timedet_hits, output_name):
     fig, axes = plt.subplots(1, 2, figsize=(12, 5), sharex=True)
     views = (
         (0, "x", "X [cm]", "XZ view"),
@@ -271,6 +271,17 @@ def _plot_detector_truth_example(ubt_hits, timedet_hits, output_name, title):
 
     for axis, coord_key, coord_label, view_title in views:
         ax = axes[axis]
+        reco_coord_index = 0 if coord_key == "x" else 1
+
+        if reco_points:
+            reco_points = sorted(reco_points, key=lambda point: point[2])
+            ax.plot(
+                [point[2] for point in reco_points],
+                [point[reco_coord_index] for point in reco_points],
+                color="tab:green",
+                linewidth=1.7,
+                label="STTrack states",
+            )
 
         if ubt_hits:
             ax.scatter(
@@ -295,13 +306,13 @@ def _plot_detector_truth_example(ubt_hits, timedet_hits, output_name, title):
         ax.set_xlabel("Z [cm]")
         ax.set_ylabel(coord_label)
         ax.set_title(view_title)
+        ax.set_ylim(-500, 500)
         ax.grid(True, alpha=0.3)
 
     handles, labels = axes[0].get_legend_handles_labels()
     if handles:
-        fig.legend(handles, labels, loc="upper center", ncol=2, frameon=False)
-    fig.suptitle(title)
-    fig.tight_layout(rect=(0, 0, 1, 0.92))
+        fig.legend(handles, labels, loc="upper center", ncol=3, frameon=False)
+    fig.tight_layout(rect=(0, 0, 1, 0.90))
     fig.savefig(build_output_path(output_name))
     plt.close(fig)
 
@@ -397,9 +408,8 @@ def _save_example_track_plot(
                 _plot_track_state_example(reco_points, matched_straw_hits, output_name, title)
                 print(f"Saved example track-state plot: {output_name}")
 
-                detector_title = f"Detector truth points: event {event_number}, track {itrk}, MCID {mcid}"
                 detector_output_name = f"{output_prefix}detector_truth_example_event_{event_number}_track_{itrk}.png"
-                _plot_detector_truth_example(ubt_hits, timedet_hits, detector_output_name, detector_title)
+                _plot_detector_truth_example(reco_points, ubt_hits, timedet_hits, detector_output_name)
                 print(f"Saved detector-truth example plot: {detector_output_name}")
                 return
 
