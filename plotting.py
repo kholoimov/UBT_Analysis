@@ -17,7 +17,23 @@ def plot_residual_histogram(residuals, output_name, title="Track-hit residuals",
             plt.hist(residuals, bins=bins, histtype="step", linewidth=1.8)
         mean_val = np.mean(residuals)
         rms_val = np.std(residuals)
+        rms_with_bias_val = np.sqrt(np.mean(np.asarray(residuals, dtype=float) ** 2))
         print(f"{title}: N={len(residuals)}, mean={mean_val:.6f}, rms={rms_val:.6f}")
+        stats_text = (
+            f"N = {len(residuals)}\n"
+            f"Mean = {mean_val:.4f}\n"
+            f"Sigma = {rms_val:.4f}\n"
+            f"RMS = {rms_with_bias_val:.4f}"
+        )
+        plt.text(
+            0.97,
+            0.95,
+            stats_text,
+            transform=plt.gca().transAxes,
+            ha="right",
+            va="top",
+            bbox={"facecolor": "white", "alpha": 0.85, "edgecolor": "0.7"},
+        )
     else:
         print(f"{title}: no entries")
 
