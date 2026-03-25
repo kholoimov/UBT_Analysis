@@ -4,6 +4,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.patches import Rectangle
 
 from analysis_io import build_output_path
 from root_utils import (
@@ -269,10 +270,41 @@ def _plot_detector_truth_example(reco_points, ubt_hits, timedet_hits, output_nam
         (0, "x", "X [cm]", "XZ view"),
         (1, "y", "Y [cm]", "YZ view"),
     )
+    detector_specs = (
+        ("UBT", 3272.0, 10.0, 100.0, "tab:blue"),
+        ("ST 1", 8407.0, 30.0, 2.0, "tab:green"),
+        ("ST 2", 8607.0, 30.0, 2.0, "tab:green"),
+        ("ST 3", 9307.0, 30.0, 2.0, "tab:green"),
+        ("ST 4", 9507.0, 30.0, 2.0, "tab:green"),
+        ("TimeDet", 105.0, 50.0, 300.0, "tab:orange"),
+    )
 
     for axis, coord_key, coord_label, view_title in views:
         ax = axes[axis]
         reco_coord_index = 0 if coord_key == "x" else 1
+
+        for detector_name, detector_z, detector_zwidth, detector_half_size, detector_color in detector_specs:
+            ax.add_patch(
+                Rectangle(
+                    (detector_z - 0.5 * detector_zwidth, -detector_half_size),
+                    detector_zwidth,
+                    2.0 * detector_half_size,
+                    fill=False,
+                    edgecolor=detector_color,
+                    linewidth=1.0,
+                    alpha=0.55,
+                )
+            )
+            ax.text(
+                detector_z,
+                detector_half_size + 20.0,
+                detector_name,
+                color=detector_color,
+                ha="center",
+                va="bottom",
+                fontsize=8,
+                alpha=0.85,
+            )
 
         if reco_points:
             reco_points = sorted(reco_points, key=lambda point: point[2])
