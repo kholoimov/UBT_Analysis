@@ -428,7 +428,13 @@ def analyze_selected_event_in_pair(args):
                     track_length_cm = None
 
             if beta is not None and beta > 0.0 and track_length_cm is not None and track_length_cm > 0.0:
-                reco_time_ns = track_length_cm / (beta * SPEED_OF_LIGHT_CM_PER_NS)
+                dx = first_state_vector.x - extrapolated_last_ubt_hit.x
+                dy = first_state_vector.y - extrapolated_last_ubt_hit.y
+                dz = first_state_vector.z - extrapolated_last_ubt_hit.z
+                ubt_to_first_state_distance_cm = math.sqrt(dx * dx + dy * dy + dz * dz)
+                total_distance_cm = track_length_cm + ubt_to_first_state_distance_cm
+
+                reco_time_ns = total_distance_cm / (beta * SPEED_OF_LIGHT_CM_PER_NS)
 
                 delta_time_ns = reco_time_ns - true_time_ns
                 
@@ -441,7 +447,9 @@ def analyze_selected_event_in_pair(args):
                     print("UBT RECO HIT X: ", extrapolated_last_ubt_hit.x, " Y: ", extrapolated_last_ubt_hit.y, " Z: ", extrapolated_last_ubt_hit.z)
                     print("First ST state X: ", first_state_vector.x, " Y: ", first_state_vector.y, " Z: ", first_state_vector.z)
                     print("ST momentum PX: ", first_state_vector.px, " PY: ", first_state_vector.py, " PZ: ", first_state_vector.pz)
-                    print("Track length [cm]: ", track_length_cm)
+                    print("Track length in ST [cm]: ", track_length_cm)
+                    print("Distance UBT -> first ST state [cm]: ", ubt_to_first_state_distance_cm)
+                    print("Total distance [cm]: ", total_distance_cm)
                     print("Beta: ", beta)
 
                     print("TRUE TIME: ", true_time_ns)
@@ -455,7 +463,7 @@ def analyze_selected_event_in_pair(args):
                         true_time_ns=true_time_ns,
                         reco_time_ns=reco_time_ns,
                         delta_time_ns=delta_time_ns,
-                        distance_cm=track_length_cm,
+                        distance_cm=total_distance_cm,
                         beta=beta,
                         ubt_hit=last_ubt_hit,
                         st_state=first_state_vector,
