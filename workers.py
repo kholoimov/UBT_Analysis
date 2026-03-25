@@ -157,6 +157,7 @@ def analyze_selected_event_in_pair(args):
     straw_points = get_branch_object(hit_chain, "strawtubesPoint")
     if straw_points is None:
         straw_points = get_branch_object(hit_chain, "StrawtubesPoint")
+    timedet_points = get_branch_object(hit_chain, "TimeDetPoint")
     mc_trackIDs = get_branch_object(track_chain, "fitTrack2MC")
     saved_state_pos = get_branch_object(track_chain, track_state_pos_branch_name)
     saved_state_mom = get_branch_object(track_chain, track_state_mom_branch_name)
@@ -172,10 +173,12 @@ def analyze_selected_event_in_pair(args):
     n_tracks = get_collection_size(fit_tracks)
     n_hits = get_collection_size(upstream_points)
     n_straw_hits = get_collection_size(straw_points)
+    n_timedet_hits = get_collection_size(timedet_points)
 
     event_info = EventInformation()
     ubt_hits_by_mcid = {}
     straw_hits_by_mcid = {}
+    timedet_hits_by_mcid = {}
 
     # -------------------------------------------------------------------------
     # Read UBT hits
@@ -228,6 +231,29 @@ def analyze_selected_event_in_pair(args):
         except Exception as exc:
             if verbose:
                 print(f"[WARN] Failed to read StrawTubes hit {i}: {exc}")
+            continue
+
+    for i in range(n_timedet_hits):
+        try:
+            hit = get_collection_item(timedet_points, i)
+            if hit is None:
+                continue
+
+            mcid = _get_track_id(hit)
+            if mcid is None:
+                continue
+
+            timedet_hit = MomentumVector(
+                x=hit.GetX(),
+                y=hit.GetY(),
+                z=hit.GetZ(),
+                mcid=mcid,
+                time_ns=_get_point_time_ns(hit),
+            )
+            timedet_hits_by_mcid.setdefault(mcid, []).append(timedet_hit)
+        except Exception as exc:
+            if verbose:
+                print(f"[WARN] Failed to read TimeDet hit {i}: {exc}")
             continue
 
     # -------------------------------------------------------------------------
@@ -356,21 +382,21 @@ def analyze_selected_event_in_pair(args):
             if last_ubt_hit is not None and hit is last_ubt_hit:
                 extrapolated_last_ubt_hit = extrapolated_state_vector
 
-        first_straw_hit = None
-        matched_straw_hits = straw_hits_by_mcid.get(mcid, [])
-        if matched_straw_hits:
-            first_straw_hit = min(matched_straw_hits, key=lambda hit: hit.z)
+        timedet_hit = None
+        matched_timedet_hits = timedet_hits_by_mcid.get(mcid, [])
+        if matched_timedet_hits:
+            timedet_hit = min(matched_timedet_hits, key=lambda hit: abs(hit.z - 105.0))
 
         if (
             last_ubt_hit is not None
-            and first_straw_hit is not None
+            and timedet_hit is not None
             and last_ubt_hit.time_ns is not None
-            and first_straw_hit.time_ns is not None
+            and timedet_hit.time_ns is not None
             and first_st_state is not None
             and len(first_st_state) >= 6
             and extrapolated_last_ubt_hit is not None
         ):
-            true_time_ns = first_straw_hit.time_ns - last_ubt_hit.time_ns
+            true_time_ns = timedet_hit.time_ns - last_ubt_hit.time_ns
 
             first_state_vector = MomentumVector(
                 x=first_st_state[0],
@@ -382,35 +408,27 @@ def analyze_selected_event_in_pair(args):
                 pz=first_st_state[5],
             )
 
-            # dx = first_state_vector.x - extrapolated_last_ubt_hit.x
-            # dy = first_state_vector.y - extrapolated_last_ubt_hit.y
-            # dz = first_state_vector.z - extrapolated_last_ubt_hit.z
-            # distance_cm = math.sqrt(dx * dx + dy * dy + dz * dz)
+            beta = _calculate_beta_from_momentum(
+                first_state_vector.px,
+                first_state_vector.py,
+                first_state_vector.pz,
+            )
 
-            # beta = _calculate_beta_from_momentum(
-            #     first_state_vector.px,
-            #     first_state_vector.py,
-            #     first_state_vector.pz,
-            # )
+            fit_status = None
+            track_length_cm = None
+            try:
+                fit_status = track.getFitStatus()
+            except Exception:
+                fit_status = None
 
-            # if beta is not None and beta > 0.0:
-            #     reco_time_ns = distance_cm / (beta * SPEED_OF_LIGHT_CM_PER_NS)
-            dx = first_state_vector.x - extrapolated_last_ubt_hit.x
-            dy = first_state_vector.y - extrapolated_last_ubt_hit.y
-            dz = first_state_vector.z - extrapolated_last_ubt_hit.z
-            distance_cm = math.sqrt(dx * dx + dy * dy + dz * dz)
+            if fit_status is not None:
+                try:
+                    track_length_cm = float(fit_status.getTrackLen())
+                except Exception:
+                    track_length_cm = None
 
-            px = first_state_vector.px
-            py = first_state_vector.py
-            pz = first_state_vector.pz
-
-            p = math.sqrt(px * px + py * py + pz * pz)
-
-            mass = 0.106  # <-- you must define this (e.g. pion, muon, etc.)
-
-            if p > 0.0:
-                energy = math.sqrt(p * p + mass * mass)
-                reco_time_ns = distance_cm * energy / (p * SPEED_OF_LIGHT_CM_PER_NS)
+            if beta is not None and beta > 0.0 and track_length_cm is not None and track_length_cm > 0.0:
+                reco_time_ns = track_length_cm / (beta * SPEED_OF_LIGHT_CM_PER_NS)
 
                 delta_time_ns = reco_time_ns - true_time_ns
                 
@@ -418,11 +436,13 @@ def analyze_selected_event_in_pair(args):
                     print("\n")
                     print("=" * 100)
                     print("UBT hit X: ", last_ubt_hit.x, " Y: ", last_ubt_hit.y, " Z: ", last_ubt_hit.z, " TIME: ", last_ubt_hit.time_ns)
-                    print("ST hit X: ", first_straw_hit.x, " Y: ", first_straw_hit.y, " Z: ", first_straw_hit.z, " TIME: ", first_straw_hit.time_ns)
+                    print("TimeDet hit X: ", timedet_hit.x, " Y: ", timedet_hit.y, " Z: ", timedet_hit.z, " TIME: ", timedet_hit.time_ns)
 
                     print("UBT RECO HIT X: ", extrapolated_last_ubt_hit.x, " Y: ", extrapolated_last_ubt_hit.y, " Z: ", extrapolated_last_ubt_hit.z)
-                    print("ST hit X: ", first_state_vector.x, " Y: ", first_state_vector.y, " Z: ", first_state_vector.z)
+                    print("First ST state X: ", first_state_vector.x, " Y: ", first_state_vector.y, " Z: ", first_state_vector.z)
                     print("ST momentum PX: ", first_state_vector.px, " PY: ", first_state_vector.py, " PZ: ", first_state_vector.pz)
+                    print("Track length [cm]: ", track_length_cm)
+                    print("Beta: ", beta)
 
                     print("TRUE TIME: ", true_time_ns)
                     print("RECO TIME: ", reco_time_ns)
@@ -435,8 +455,8 @@ def analyze_selected_event_in_pair(args):
                         true_time_ns=true_time_ns,
                         reco_time_ns=reco_time_ns,
                         delta_time_ns=delta_time_ns,
-                        distance_cm=distance_cm,
-                        beta=0,
+                        distance_cm=track_length_cm,
+                        beta=beta,
                         ubt_hit=last_ubt_hit,
                         st_state=first_state_vector,
                         extrapolated_hit=extrapolated_last_ubt_hit,
