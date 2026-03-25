@@ -249,6 +249,7 @@ def _plot_track_state_example(
             color="tab:red",
         )
 
+        ax.set_ylim(-500, 500)
         ax.set_xlabel("Z [cm]")
         ax.set_ylabel(coord_label)
         ax.set_title(view_title)
@@ -256,7 +257,7 @@ def _plot_track_state_example(
 
     handles, labels = axes[0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="upper center", ncol=3, frameon=False)
-    fig.suptitle(title)
+    # fig.suptitle(title)
     fig.tight_layout(rect=(0, 0, 1, 0.92))
     fig.savefig(build_output_path(output_name))
     plt.close(fig)
