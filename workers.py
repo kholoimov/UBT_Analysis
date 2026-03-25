@@ -324,8 +324,10 @@ def analyze_selected_event_in_pair(args):
 
         if all_points:
             first_st_state = all_points[0]
+            last_st_state = max(all_points, key=lambda point: point[2])
         else:
             first_st_state = None
+            last_st_state = None
 
         matched_hits = ubt_hits_by_mcid.get(mcid, [])
         last_ubt_hit = max(matched_hits, key=lambda hit: hit.z) if matched_hits else None
@@ -393,6 +395,7 @@ def analyze_selected_event_in_pair(args):
             and last_ubt_hit.time_ns is not None
             and timedet_hit.time_ns is not None
             and first_st_state is not None
+            and last_st_state is not None
             and len(first_st_state) >= 6
             and extrapolated_last_ubt_hit is not None
         ):
@@ -406,6 +409,15 @@ def analyze_selected_event_in_pair(args):
                 px=first_st_state[3],
                 py=first_st_state[4],
                 pz=first_st_state[5],
+            )
+            last_state_vector = MomentumVector(
+                x=last_st_state[0],
+                y=last_st_state[1],
+                z=last_st_state[2],
+                mcid=mcid,
+                px=last_st_state[3] if len(last_st_state) >= 6 else 0.0,
+                py=last_st_state[4] if len(last_st_state) >= 6 else 0.0,
+                pz=last_st_state[5] if len(last_st_state) >= 6 else 0.0,
             )
 
             beta = _calculate_beta_from_momentum(
@@ -432,7 +444,15 @@ def analyze_selected_event_in_pair(args):
                 dy = first_state_vector.y - extrapolated_last_ubt_hit.y
                 dz = first_state_vector.z - extrapolated_last_ubt_hit.z
                 ubt_to_first_state_distance_cm = math.sqrt(dx * dx + dy * dy + dz * dz)
-                total_distance_cm = track_length_cm + ubt_to_first_state_distance_cm
+                dx_end = timedet_hit.x - last_state_vector.x
+                dy_end = timedet_hit.y - last_state_vector.y
+                dz_end = timedet_hit.z - last_state_vector.z
+                last_state_to_timedet_distance_cm = math.sqrt(dx_end * dx_end + dy_end * dy_end + dz_end * dz_end)
+                total_distance_cm = (
+                    ubt_to_first_state_distance_cm
+                    + track_length_cm
+                    + last_state_to_timedet_distance_cm
+                )
 
                 reco_time_ns = total_distance_cm / (beta * SPEED_OF_LIGHT_CM_PER_NS)
 
@@ -449,6 +469,7 @@ def analyze_selected_event_in_pair(args):
                     print("ST momentum PX: ", first_state_vector.px, " PY: ", first_state_vector.py, " PZ: ", first_state_vector.pz)
                     print("Track length in ST [cm]: ", track_length_cm)
                     print("Distance UBT -> first ST state [cm]: ", ubt_to_first_state_distance_cm)
+                    print("Distance last ST state -> TimeDet [cm]: ", last_state_to_timedet_distance_cm)
                     print("Total distance [cm]: ", total_distance_cm)
                     print("Beta: ", beta)
 
