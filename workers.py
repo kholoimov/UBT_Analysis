@@ -1,4 +1,5 @@
 import math
+from collections import Counter
 
 from root_utils import (
     get_ROOT,
@@ -91,13 +92,35 @@ def analyze_selected_event_in_pair(args):
     ok1 = track_chain.GetEntry(local_event_number)
     ok2 = hit_chain.GetEntry(local_event_number)
 
+    failure_counts = Counter()
+
+    def record_failure(reason, message):
+        failure_counts[reason] += 1
+        if verbose:
+            print(
+                f"[DEBUG][STEP2][pair={pair_index}][global_event={global_event_number}] "
+                f"{reason}: {message}"
+            )
+
     empty_result = {
         "global_event_number": global_event_number,
         "success": False,
         "event": EventInformation(),
+        "failure_counts": {},
     }
 
+    if ok1 <= 0:
+        record_failure(
+            "track_entry_read_failed",
+            f"could not read track entry for local event {local_event_number}",
+        )
+    if ok2 <= 0:
+        record_failure(
+            "hit_entry_read_failed",
+            f"could not read hit entry for local event {local_event_number}",
+        )
     if ok1 <= 0 or ok2 <= 0:
+        empty_result["failure_counts"] = dict(failure_counts)
         return empty_result
 
     fit_tracks = get_branch_object(track_chain, track_branch_name)
@@ -106,12 +129,28 @@ def analyze_selected_event_in_pair(args):
     saved_state_pos = get_branch_object(track_chain, track_state_pos_branch_name)
     saved_state_mom = get_branch_object(track_chain, track_state_mom_branch_name)
 
+    if fit_tracks is None:
+        record_failure("missing_fit_tracks", f"branch '{track_branch_name}' is missing")
+    if upstream_points is None:
+        record_failure("missing_upstream_points", f"branch '{hit_branch_name}' is missing")
+    if saved_state_pos is None:
+        record_failure(
+            "missing_saved_state_pos",
+            f"branch '{track_state_pos_branch_name}' is missing",
+        )
+    if saved_state_mom is None:
+        record_failure(
+            "missing_saved_state_mom",
+            f"branch '{track_state_mom_branch_name}' is missing",
+        )
+
     if (
         fit_tracks is None
         or upstream_points is None
         or saved_state_pos is None
         or saved_state_mom is None
     ):
+        empty_result["failure_counts"] = dict(failure_counts)
         return empty_result
 
     n_tracks = get_collection_size(fit_tracks)
@@ -144,8 +183,7 @@ def analyze_selected_event_in_pair(args):
             ubt_hits_by_mcid.setdefault(ubt_hit.mcid, []).append(ubt_hit)
 
         except Exception as exc:
-            if verbose:
-                print(f"[WARN] Failed to read UBT hit {i}: {exc}")
+            record_failure("ubt_hit_read_failed", f"failed to read UBT hit {i}: {exc}")
             continue
 
     # -------------------------------------------------------------------------
@@ -155,13 +193,11 @@ def analyze_selected_event_in_pair(args):
         try:
             track = get_collection_item(fit_tracks, itrk)
         except Exception as exc:
-            if verbose:
-                print(f"[WARN] Failed to access track {itrk}: {exc}")
+            record_failure("track_access_failed", f"failed to access track {itrk}: {exc}")
             continue
 
         if not track:
-            if verbose:
-                print(f"[WARN] Null track at index {itrk}")
+            record_failure("null_track", f"null track at index {itrk}")
             continue
 
         mcid = itrk
@@ -171,8 +207,7 @@ def analyze_selected_event_in_pair(args):
                 if mcid_obj is not None:
                     mcid = int(mcid_obj)
             except Exception as exc:
-                if verbose:
-                    print(f"[WARN] Failed to read mcid for track {itrk}: {exc}")
+                record_failure("mcid_read_failed", f"failed to read mcid for track {itrk}: {exc}")
 
         try:
             saved_ref_state = get_saved_reference_state(
@@ -182,8 +217,10 @@ def analyze_selected_event_in_pair(args):
                 get_vector3_components,
             )
         except Exception as exc:
-            if verbose:
-                print(f"[WARN] Failed to read saved extra state for track {itrk}: {exc}")
+            record_failure(
+                "saved_extra_state_read_failed",
+                f"failed to read saved extra state for track {itrk}: {exc}",
+            )
             continue
 
         saved_state = MomentumVector(
@@ -209,8 +246,10 @@ def analyze_selected_event_in_pair(args):
                 elif len(point) >= 3:
                     st_track.add_hit(point[0], point[1], point[2])
         except Exception as exc:
-            if verbose:
-                print(f"[WARN] Failed to extract points for track {itrk}: {exc}")
+            record_failure(
+                "track_points_extract_failed",
+                f"failed to extract points for track {itrk}: {exc}",
+            )
 
         event_info.addSTTrack(st_track)
 
@@ -226,11 +265,10 @@ def analyze_selected_event_in_pair(args):
                 hit.z,
             )
             if extrapolated_state is None:
-                if verbose:
-                    print(
-                        f"[WARN] Linear extrapolation from extra state failed for track {itrk} "
-                        f"(mcid={mcid}) to z={hit.z}"
-                    )
+                record_failure(
+                    "linear_extrapolation_failed",
+                    f"track {itrk} (mcid={mcid}) could not extrapolate to z={hit.z}",
+                )
                 continue
 
             x_ref, y_ref, z_ref, px_ref, py_ref, pz_ref = extrapolated_state
@@ -268,4 +306,5 @@ def analyze_selected_event_in_pair(args):
         "global_event_number": global_event_number,
         "success": True,
         "event": event_info,
+        "failure_counts": dict(failure_counts),
     }

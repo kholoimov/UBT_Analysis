@@ -1,6 +1,7 @@
 import sys
 import multiprocessing as mp
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from collections import Counter
 import numpy as np
 
 from root_utils import expand_patterns
@@ -121,6 +122,9 @@ def inspect_and_plot_all_tracks_parallel(
             analysis_results.append(fut.result())
 
     analysis_results.sort(key=lambda x: x["global_event_number"])
+    step_two_failure_counts = Counter()
+    for res in analysis_results:
+        step_two_failure_counts.update(res.get("failure_counts", {}))
 
     events = []
     counter = 0
@@ -135,6 +139,13 @@ def inspect_and_plot_all_tracks_parallel(
             )
             counter += 1
         events.append(res["event"])
+
+    if step_two_failure_counts:
+        print("\nStep 2 failure summary:")
+        for reason, count in sorted(step_two_failure_counts.items()):
+            print(f"  {reason}: {count}")
+    else:
+        print("\nStep 2 failure summary: no failures recorded.")
 
     make_all_summary_plots(events, output_prefix=output_prefix)
 
@@ -157,7 +168,7 @@ if __name__ == "__main__":
     usage = (
         "Usage:\n"
         "  Analyze ROOT files and save processed arrays:\n"
-        "    python main.py <track_files/wildcards> <hit_files/wildcards> "
+        "    python main.py [--debug] <track_files/wildcards> <hit_files/wildcards> "
         "[max_events_with_tracks] [workers] [output_prefix]\n\n"
         "  Replot from saved processed file only:\n"
         "    python main.py --load <saved_results.npz> [output_prefix]\n"
@@ -177,15 +188,21 @@ if __name__ == "__main__":
         plot_from_saved_file(saved_results_file, output_prefix=output_prefix)
         sys.exit(0)
 
-    if len(sys.argv) < 3:
+    args = sys.argv[1:]
+    debug = False
+    if "--debug" in args:
+        debug = True
+        args = [arg for arg in args if arg != "--debug"]
+
+    if len(args) < 2:
         print(usage)
         sys.exit(1)
 
-    track_patterns = [sys.argv[1]]
-    hit_patterns = [sys.argv[2]]
-    max_events_with_tracks = int(sys.argv[3]) if len(sys.argv) > 3 else 1
-    workers = int(sys.argv[4]) if len(sys.argv) > 4 else 4
-    output_prefix = sys.argv[5] if len(sys.argv) > 5 else ""
+    track_patterns = [args[0]]
+    hit_patterns = [args[1]]
+    max_events_with_tracks = int(args[2]) if len(args) > 2 else 1
+    workers = int(args[3]) if len(args) > 3 else 4
+    output_prefix = args[4] if len(args) > 4 else ""
 
     inspect_and_plot_all_tracks_parallel(
         track_file_patterns=track_patterns,
@@ -193,6 +210,6 @@ if __name__ == "__main__":
         max_events_with_tracks=max_events_with_tracks,
         workers=workers,
         output_prefix=output_prefix,
-        verbose=False,
+        verbose=debug,
         save_processed=True,
     )
