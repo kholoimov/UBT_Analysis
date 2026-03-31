@@ -79,6 +79,7 @@ def analyze_selected_event_in_pair(args):
         detector_zs,
         output_prefix_base,
         verbose,
+        trace_hits,
     ) = args
 
     ROOT = get_ROOT()
@@ -299,7 +300,7 @@ def analyze_selected_event_in_pair(args):
             dy = extrapolated_state_vector.y - hit.y
             dist = math.sqrt(dx * dx + dy * dy)
 
-            if verbose:
+            if trace_hits:
                 print("REF X = ", extrapolated_state_vector.x, " UBT hit = ", hit.x)
                 print("REF Y = ", extrapolated_state_vector.y, " UBT hit = ", hit.y)
                 print("REF Z = ", extrapolated_state_vector.z, " UBT hit = ", hit.z)

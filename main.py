@@ -23,6 +23,7 @@ def inspect_and_plot_all_tracks_parallel(
     workers=4,
     output_prefix="",
     verbose=False,
+    trace_hits=False,
     save_processed=True,
 ):
     def debug_log(message):
@@ -116,6 +117,7 @@ def inspect_and_plot_all_tracks_parallel(
             detector_zs,
             output_prefix,
             verbose,
+            trace_hits,
         )
         for s in selected
     ]
@@ -189,7 +191,7 @@ if __name__ == "__main__":
     usage = (
         "Usage:\n"
         "  Analyze ROOT files and save processed arrays:\n"
-        "    python main.py [--debug] <track_files/wildcards> <hit_files/wildcards> "
+        "    python main.py [--debug] [--trace-hits] <track_files/wildcards> <hit_files/wildcards> "
         "[max_events_with_tracks] [workers] [output_prefix]\n\n"
         "  Replot from saved processed file only:\n"
         "    python main.py --load <saved_results.npz> [output_prefix]\n"
@@ -211,9 +213,13 @@ if __name__ == "__main__":
 
     args = sys.argv[1:]
     debug = False
+    trace_hits = False
     if "--debug" in args:
         debug = True
         args = [arg for arg in args if arg != "--debug"]
+    if "--trace-hits" in args:
+        trace_hits = True
+        args = [arg for arg in args if arg != "--trace-hits"]
 
     if len(args) < 2:
         print(usage)
@@ -232,5 +238,6 @@ if __name__ == "__main__":
         workers=workers,
         output_prefix=output_prefix,
         verbose=debug,
+        trace_hits=trace_hits,
         save_processed=True,
     )
