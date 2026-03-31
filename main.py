@@ -123,19 +123,12 @@ def inspect_and_plot_all_tracks_parallel(
     ]
 
     analysis_results = []
-    if verbose:
-        debug_log("debug mode enabled, running second pass sequentially")
-        for index, arg in enumerate(analyze_args, start=1):
-            debug_log(f"starting sequential analysis {index}/{len(analyze_args)}")
-            analysis_results.append(analyze_selected_event_in_pair(arg))
-            debug_log(f"finished sequential analysis {index}/{len(analyze_args)}")
-    else:
-        with ProcessPoolExecutor(max_workers=min(workers, len(analyze_args)), mp_context=ctx) as executor:
-            futures = [executor.submit(analyze_selected_event_in_pair, arg) for arg in analyze_args]
-            for fut in as_completed(futures):
-                analysis_results.append(fut.result())
-                debug_log(f"collected worker result {len(analysis_results)}/{len(analyze_args)}")
-        debug_log("all worker futures completed")
+    with ProcessPoolExecutor(max_workers=min(workers, len(analyze_args)), mp_context=ctx) as executor:
+        futures = [executor.submit(analyze_selected_event_in_pair, arg) for arg in analyze_args]
+        for fut in as_completed(futures):
+            analysis_results.append(fut.result())
+            debug_log(f"collected worker result {len(analysis_results)}/{len(analyze_args)}")
+    debug_log("all worker futures completed")
 
     analysis_results.sort(key=lambda x: x["global_event_number"])
     step_two_failure_counts = Counter()
