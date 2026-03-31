@@ -148,7 +148,7 @@ def inspect_and_plot_all_tracks_parallel(
         if not res["success"]:
             debug_log(f"skipping failed event {res['global_event_number']}")
             continue
-        if counter < 100:
+        if counter < 5:
             debug_log(f"plotting detector view for event {res['global_event_number']}")
             plot_event_detector_views(
                 res["event"],
