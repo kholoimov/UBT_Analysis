@@ -25,6 +25,10 @@ def inspect_and_plot_all_tracks_parallel(
     verbose=False,
     save_processed=True,
 ):
+    def debug_log(message):
+        if verbose:
+            print(f"[DEBUG][MAIN] {message}")
+
     track_files = expand_patterns(track_file_patterns)
     hit_files = expand_patterns(hit_file_patterns)
 
@@ -94,6 +98,7 @@ def inspect_and_plot_all_tracks_parallel(
     print("\n" + "=" * 80)
     print("SECOND PASS: ANALYZING SELECTED EVENTS IN PARALLEL")
     print("=" * 80)
+    debug_log(f"starting second pass for {len(selected)} selected events")
 
     analyze_args = [
         (
@@ -120,6 +125,8 @@ def inspect_and_plot_all_tracks_parallel(
         futures = [executor.submit(analyze_selected_event_in_pair, arg) for arg in analyze_args]
         for fut in as_completed(futures):
             analysis_results.append(fut.result())
+            debug_log(f"collected worker result {len(analysis_results)}/{len(analyze_args)}")
+    debug_log("all worker futures completed")
 
     analysis_results.sort(key=lambda x: x["global_event_number"])
     step_two_failure_counts = Counter()
@@ -130,13 +137,16 @@ def inspect_and_plot_all_tracks_parallel(
     counter = 0
     for res in analysis_results:
         if not res["success"]:
+            debug_log(f"skipping failed event {res['global_event_number']}")
             continue
         if counter < 100:
+            debug_log(f"plotting detector view for event {res['global_event_number']}")
             plot_event_detector_views(
                 res["event"],
                 res["global_event_number"],
                 output_prefix=output_prefix,
             )
+            debug_log(f"finished detector view for event {res['global_event_number']}")
             counter += 1
         events.append(res["event"])
 
@@ -147,10 +157,14 @@ def inspect_and_plot_all_tracks_parallel(
     else:
         print("\nStep 2 failure summary: no failures recorded.")
 
+    debug_log(f"starting summary plots for {len(events)} events")
     make_all_summary_plots(events, output_prefix=output_prefix)
+    debug_log("finished summary plots")
 
     if save_processed:
+        debug_log("starting save of processed results")
         save_analysis_results(output_prefix, events)
+        debug_log("finished save of processed results")
 
 
 def plot_from_saved_file(saved_results_file, output_prefix=""):
