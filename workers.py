@@ -94,13 +94,20 @@ def analyze_selected_event_in_pair(args):
 
     failure_counts = Counter()
 
-    def record_failure(reason, message):
-        failure_counts[reason] += 1
+    def debug_log(message):
         if verbose:
             print(
                 f"[DEBUG][STEP2][pair={pair_index}][global_event={global_event_number}] "
-                f"{reason}: {message}"
+                f"{message}"
             )
+
+    def record_failure(reason, message):
+        failure_counts[reason] += 1
+        debug_log(f"{reason}: {message}")
+
+    debug_log("starting analysis worker")
+    debug_log(f"opened ROOT chains for local_event={local_event_number}")
+    debug_log("loaded event entries")
 
     empty_result = {
         "global_event_number": global_event_number,
@@ -128,6 +135,7 @@ def analyze_selected_event_in_pair(args):
     mc_trackIDs = get_branch_object(track_chain, "fitTrack2MC")
     saved_state_pos = get_branch_object(track_chain, track_state_pos_branch_name)
     saved_state_mom = get_branch_object(track_chain, track_state_mom_branch_name)
+    debug_log("loaded branch objects")
 
     if fit_tracks is None:
         record_failure("missing_fit_tracks", f"branch '{track_branch_name}' is missing")
@@ -155,6 +163,7 @@ def analyze_selected_event_in_pair(args):
 
     n_tracks = get_collection_size(fit_tracks)
     n_hits = get_collection_size(upstream_points)
+    debug_log(f"counted collections: n_tracks={n_tracks}, n_hits={n_hits}")
 
     event_info = EventInformation()
     ubt_hits_by_mcid = {}
@@ -162,6 +171,7 @@ def analyze_selected_event_in_pair(args):
     # -------------------------------------------------------------------------
     # Read UBT hits
     # -------------------------------------------------------------------------
+    debug_log("starting UBT hit read loop")
     mom_ubt = ROOT.TVector3()
     for i in range(n_hits):
         try:
@@ -185,11 +195,14 @@ def analyze_selected_event_in_pair(args):
         except Exception as exc:
             record_failure("ubt_hit_read_failed", f"failed to read UBT hit {i}: {exc}")
             continue
+    debug_log(f"finished UBT hit read loop with {len(event_info.UBT_hits)} hits")
 
     # -------------------------------------------------------------------------
     # Read stored track points and extrapolate the saved extra state back to UBT
     # -------------------------------------------------------------------------
+    debug_log("starting track processing loop")
     for itrk in range(n_tracks):
+        debug_log(f"processing track index {itrk}")
         try:
             track = get_collection_item(fit_tracks, itrk)
         except Exception as exc:
@@ -254,6 +267,7 @@ def analyze_selected_event_in_pair(args):
         event_info.addSTTrack(st_track)
 
         matched_hits = ubt_hits_by_mcid.get(mcid, [])
+        debug_log(f"track {itrk} matched {len(matched_hits)} UBT hits")
         for hit in matched_hits:
             extrapolated_state = extrapolate_linearly_from_state(
                 saved_ref_state[0],
@@ -301,6 +315,12 @@ def analyze_selected_event_in_pair(args):
                     hit=hit,
                 )
             )
+        debug_log(f"finished track index {itrk}")
+
+    debug_log(
+        "finished analysis worker "
+        f"with residuals={len(event_info.residuals)} and failures={sum(failure_counts.values())}"
+    )
 
     return {
         "global_event_number": global_event_number,
