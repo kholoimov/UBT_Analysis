@@ -153,3 +153,54 @@ def track_passes_selection_from_saved_state(ref_state, all_points, p_min=1.0, nm
         "n_meas": n_meas,
     }
     return passes, info
+
+
+def track_passes_selection(track, all_points, p_min=1.0, nmeas_min=25, chi2ndf_max=5.0):
+    """
+    Selection based on the first stored track state and fit quality.
+    """
+    if not all_points or len(all_points[0]) < 6:
+        return False, {
+            "reason": "no_first_state",
+            "p": None,
+            "n_meas": 0,
+            "chi2_ndf": None,
+        }
+
+    first = all_points[0]
+    px, py, pz = first[3], first[4], first[5]
+    p = math.sqrt(px * px + py * py + pz * pz)
+    n_meas = len(all_points)
+
+    chi2_ndf = None
+    try:
+        fit_status = track.getFitStatus()
+        ndf = float(fit_status.getNdf())
+        chi2 = float(fit_status.getChi2())
+        if ndf > 0.0:
+            chi2_ndf = chi2 / ndf
+    except Exception:
+        chi2_ndf = None
+
+    passed = True
+    reason = "passed"
+
+    if not (p > p_min):
+        passed = False
+        reason = "momentum"
+    elif not (n_meas > nmeas_min):
+        passed = False
+        reason = "n_measurements"
+    elif chi2_ndf is None:
+        passed = False
+        reason = "missing_chi2_ndf"
+    elif not (chi2_ndf < chi2ndf_max):
+        passed = False
+        reason = "chi2_ndf"
+
+    return passed, {
+        "reason": reason,
+        "p": p,
+        "n_meas": n_meas,
+        "chi2_ndf": chi2_ndf,
+    }

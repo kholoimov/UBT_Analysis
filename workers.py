@@ -9,8 +9,8 @@ from root_utils import (
 )
 from track_state import (
     get_all_track_points,
-    get_saved_reference_state,
     extrapolate_linearly_from_state,
+    track_passes_selection,
 )
 
 from model import EventInformation, MomentumVector, Residual, STTrack, TimingMeasurement
@@ -257,7 +257,7 @@ def analyze_selected_event_in_pair(args):
             continue
 
     # -------------------------------------------------------------------------
-    # Read stored track points and extrapolate the saved extra state back to UBT
+    # Read stored track points and extrapolate the first ST state back to UBT
     # -------------------------------------------------------------------------
     for itrk in range(n_tracks):
         try:
@@ -282,29 +282,6 @@ def analyze_selected_event_in_pair(args):
                 if verbose:
                     print(f"[WARN] Failed to read mcid for track {itrk}: {exc}")
 
-        try:
-            saved_ref_state = get_saved_reference_state(
-                saved_state_pos,
-                saved_state_mom,
-                itrk,
-                get_vector3_components,
-            )
-        except Exception as exc:
-            if verbose:
-                print(f"[WARN] Failed to read saved extra state for track {itrk}: {exc}")
-            continue
-
-        saved_state = MomentumVector(
-            x=saved_ref_state[0],
-            y=saved_ref_state[1],
-            z=saved_ref_state[2],
-            mcid=mcid,
-            px=saved_ref_state[3],
-            py=saved_ref_state[4],
-            pz=saved_ref_state[5],
-        )
-        event_info.addExtraState(saved_state)
-
         st_track = STTrack(mcid=mcid)
 
         try:
@@ -322,6 +299,17 @@ def analyze_selected_event_in_pair(args):
 
         event_info.addSTTrack(st_track)
 
+        passes_selection, selection_info = track_passes_selection(track, all_points)
+        if not passes_selection:
+            if verbose:
+                print(
+                    f"[DEBUG][STEP2][pair={pair_index}][global_event={global_event_number}] "
+                    f"track {itrk} failed selection: {selection_info['reason']} "
+                    f"(p={selection_info['p']}, n_meas={selection_info['n_meas']}, "
+                    f"chi2/ndf={selection_info['chi2_ndf']})"
+                )
+            continue
+
         if all_points:
             first_st_state = all_points[0]
             last_st_state = max(all_points, key=lambda point: point[2])
@@ -333,19 +321,27 @@ def analyze_selected_event_in_pair(args):
         last_ubt_hit = max(matched_hits, key=lambda hit: hit.z) if matched_hits else None
         extrapolated_last_ubt_hit = None
         for hit in matched_hits:
+            if first_st_state is None or len(first_st_state) < 6:
+                if verbose:
+                    print(
+                        f"[WARN] Linear extrapolation from first ST state failed for track {itrk} "
+                        f"(mcid={mcid}): no valid first state"
+                    )
+                break
+
             extrapolated_state = extrapolate_linearly_from_state(
-                saved_ref_state[0],
-                saved_ref_state[1],
-                saved_ref_state[2],
-                saved_ref_state[3],
-                saved_ref_state[4],
-                saved_ref_state[5],
+                first_st_state[0],
+                first_st_state[1],
+                first_st_state[2],
+                first_st_state[3],
+                first_st_state[4],
+                first_st_state[5],
                 hit.z,
             )
             if extrapolated_state is None:
                 if verbose:
                     print(
-                        f"[WARN] Linear extrapolation from extra state failed for track {itrk} "
+                        f"[WARN] Linear extrapolation from first ST state failed for track {itrk} "
                         f"(mcid={mcid}) to z={hit.z}"
                     )
                 continue
