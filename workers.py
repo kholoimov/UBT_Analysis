@@ -5,11 +5,9 @@ from root_utils import (
     get_branch_object,
     get_collection_item,
     get_collection_size,
-    get_vector3_components,
 )
 from track_state import (
     get_all_track_points,
-    get_saved_reference_state,
     extrapolate_linearly_from_state,
 )
 
@@ -159,15 +157,8 @@ def analyze_selected_event_in_pair(args):
         straw_points = get_branch_object(hit_chain, "StrawtubesPoint")
     timedet_points = get_branch_object(hit_chain, "TimeDetPoint")
     mc_trackIDs = get_branch_object(track_chain, "fitTrack2MC")
-    saved_state_pos = get_branch_object(track_chain, track_state_pos_branch_name)
-    saved_state_mom = get_branch_object(track_chain, track_state_mom_branch_name)
 
-    if (
-        fit_tracks is None
-        or upstream_points is None
-        or saved_state_pos is None
-        or saved_state_mom is None
-    ):
+    if fit_tracks is None or upstream_points is None:
         return empty_result
 
     n_tracks = get_collection_size(fit_tracks)
@@ -281,29 +272,6 @@ def analyze_selected_event_in_pair(args):
             except Exception as exc:
                 if verbose:
                     print(f"[WARN] Failed to read mcid for track {itrk}: {exc}")
-
-        try:
-            saved_ref_state = get_saved_reference_state(
-                saved_state_pos,
-                saved_state_mom,
-                itrk,
-                get_vector3_components,
-            )
-        except Exception as exc:
-            if verbose:
-                print(f"[WARN] Failed to read saved extra state for track {itrk}: {exc}")
-            continue
-
-        saved_state = MomentumVector(
-            x=saved_ref_state[0],
-            y=saved_ref_state[1],
-            z=saved_ref_state[2],
-            mcid=mcid,
-            px=saved_ref_state[3],
-            py=saved_ref_state[4],
-            pz=saved_ref_state[5],
-        )
-        event_info.addExtraState(saved_state)
 
         st_track = STTrack(mcid=mcid)
 
