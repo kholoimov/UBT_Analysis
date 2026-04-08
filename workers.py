@@ -257,7 +257,7 @@ def analyze_selected_event_in_pair(args):
             continue
 
     # -------------------------------------------------------------------------
-    # Read stored track points and extrapolate the saved extra state back to UBT
+    # Read stored track points and extrapolate the first ST state back to UBT
     # -------------------------------------------------------------------------
     for itrk in range(n_tracks):
         try:
@@ -333,19 +333,27 @@ def analyze_selected_event_in_pair(args):
         last_ubt_hit = max(matched_hits, key=lambda hit: hit.z) if matched_hits else None
         extrapolated_last_ubt_hit = None
         for hit in matched_hits:
+            if first_st_state is None or len(first_st_state) < 6:
+                if verbose:
+                    print(
+                        f"[WARN] Linear extrapolation from first ST state failed for track {itrk} "
+                        f"(mcid={mcid}): no valid first state"
+                    )
+                break
+
             extrapolated_state = extrapolate_linearly_from_state(
-                saved_ref_state[0],
-                saved_ref_state[1],
-                saved_ref_state[2],
-                saved_ref_state[3],
-                saved_ref_state[4],
-                saved_ref_state[5],
+                first_st_state[0],
+                first_st_state[1],
+                first_st_state[2],
+                first_st_state[3],
+                first_st_state[4],
+                first_st_state[5],
                 hit.z,
             )
             if extrapolated_state is None:
                 if verbose:
                     print(
-                        f"[WARN] Linear extrapolation from extra state failed for track {itrk} "
+                        f"[WARN] Linear extrapolation from first ST state failed for track {itrk} "
                         f"(mcid={mcid}) to z={hit.z}"
                     )
                 continue

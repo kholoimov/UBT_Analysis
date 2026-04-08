@@ -15,7 +15,7 @@ from root_utils import (
     get_collection_size,
     get_vector3_components,
 )
-from track_state import get_all_track_points, get_saved_reference_state, extrapolate_linearly_from_state
+from track_state import get_all_track_points, extrapolate_linearly_from_state
 
 
 def _get_track_id(point):
@@ -414,9 +414,6 @@ def _save_example_track_plot(
             ubt_points = get_branch_object(hit_chain, "UpstreamTaggerPoint")
             timedet_points = get_branch_object(hit_chain, "TimeDetPoint")
             mc_track_ids = get_branch_object(track_chain, "fitTrack2MC")
-            saved_state_pos = get_branch_object(track_chain, "PropagatedPos")
-            saved_state_mom = get_branch_object(track_chain, "PropagatedMom")
-
             if fit_tracks is None or straw_points is None:
                 continue
 
@@ -489,25 +486,16 @@ def _save_example_track_plot(
                 matched_timedet_hit = min(matched_timedet_hits, key=lambda hit: abs(hit["z"] - 105.0)) if matched_timedet_hits else None
                 extrapolated_ubt_hit = None
 
-                if (
-                    last_ubt_hit is not None
-                    and saved_state_pos is not None
-                    and saved_state_mom is not None
-                ):
+                if last_ubt_hit is not None:
                     try:
-                        saved_ref_state = get_saved_reference_state(
-                            saved_state_pos,
-                            saved_state_mom,
-                            itrk,
-                            get_vector3_components,
-                        )
+                        first_reco_state = min(reco_points, key=lambda point: point[2])
                         extrapolated_state = extrapolate_linearly_from_state(
-                            saved_ref_state[0],
-                            saved_ref_state[1],
-                            saved_ref_state[2],
-                            saved_ref_state[3],
-                            saved_ref_state[4],
-                            saved_ref_state[5],
+                            first_reco_state[0],
+                            first_reco_state[1],
+                            first_reco_state[2],
+                            first_reco_state[3],
+                            first_reco_state[4],
+                            first_reco_state[5],
                             last_ubt_hit["z"],
                         )
                         if extrapolated_state is not None:
